@@ -20,7 +20,7 @@ function createWindow(): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.cjs'),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
