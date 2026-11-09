@@ -6,6 +6,8 @@ import { PinoLogger } from '@infrastructure/observability/PinoLogger';
 import { reportError } from '@application/observability/reportError';
 import { createSchedulingContainer } from './composition/container';
 import { registerScheduleHandlers } from './ipc/registerScheduleHandlers';
+import { runIpc } from './ipc/runIpc';
+import type { Logger } from '@application/observability/Logger';
 
 const isDev = !app.isPackaged;
 
@@ -44,13 +46,21 @@ function createWindow(): BrowserWindow {
 
 function bootstrap(): void {
   const logger = PinoLogger.create(isDev ? 'debug' : 'info');
-  const db = openDatabase(join(app.getPath('userData'), 'hora-rotativa.db'));
-  const container = createSchedulingContainer(db, { logger });
 
   ipcMain.handle(IpcChannel.AppGetInfo, (): AppInfo => {
     return { name: app.getName(), version: app.getVersion() };
   });
-  registerScheduleHandlers(ipcMain, container.generateWeeklySchedule, logger);
+
+  // A persistência (SQLite, módulo nativo) não deve derrubar o app se faltar.
+  // O app sobe mesmo assim; o canal de escala responde com erro até ser resolvido.
+  try {
+    const db = openDatabase(join(app.getPath('userData'), 'hora-rotativa.db'));
+    const container = createSchedulingContainer(db, { logger });
+    registerScheduleHandlers(ipcMain, container.generateWeeklySchedule, logger);
+  } catch (error) {
+    reportError(logger, 'bootstrap:persistence', error);
+    registerSchedulingUnavailable(logger);
+  }
 
   installProcessErrorHandlers(logger);
   createWindow();
@@ -60,6 +70,16 @@ function bootstrap(): void {
       createWindow();
     }
   });
+}
+
+function registerSchedulingUnavailable(logger: Logger): void {
+  ipcMain.handle(IpcChannel.ScheduleGenerate, () =>
+    runIpc(logger, IpcChannel.ScheduleGenerate, () =>
+      Promise.reject(
+        new Error('Persistência indisponível. Rode "npm install" (better-sqlite3) e reinicie.'),
+      ),
+    ),
+  );
 }
 
 function installProcessErrorHandlers(logger: PinoLogger): void {
