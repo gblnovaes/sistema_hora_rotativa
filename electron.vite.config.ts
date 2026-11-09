@@ -22,7 +22,11 @@ export default defineConfig({
     resolve: { alias },
     plugins: [externalizeDepsPlugin()],
     build: {
-      rollupOptions: { input: { index: resolve('src/preload/index.ts') } },
+      rollupOptions: {
+        input: { index: resolve('src/preload/index.ts') },
+        // sandbox: true exige preload em CommonJS; .cjs é CJS mesmo com "type": "module".
+        output: { format: 'cjs', entryFileNames: '[name].cjs' },
+      },
     },
   },
   renderer: {
