@@ -58,3 +58,18 @@ Antes de tratar as 42h como restrição rígida, confirmar com a operação:
 
 Enquanto não confirmado, a regra de horas semanais fica como **política configurável por
 unidade**, não como invariante global.
+
+## Modelo de domínio (implementado)
+
+- `WeekDay` / `WEEK_DAYS` — os sete dias, em ordem; `WEEKDAYS` isola segunda a sexta.
+- `DayAssignment` — `Work`, `FixedRest` ou `RotatingRest` (`isRest` cobre as duas folgas).
+- `Unit` + `UnitPolicy` — política por unidade: folgas fixas, nº de folgas rotativas e os
+  dias candidatos. Invariante: folgas fixas + rotativas = 2 por semana.
+  - `ADMINISTRATIVO`: fixas sábado e domingo; 0 rotativas.
+  - `MOOCA`: fixa domingo; 1 rotativa entre segunda e sábado.
+- `Employee` — matrícula, nome e unidade; expõe a política da unidade.
+- `EmployeeWeek` — monta a semana a partir da política mais a folga rotativa escolhida,
+  valida (2 folgas, rotativa só em dia candidato) e expõe `restDays` e `workDays`.
+
+A escolha de **qual** dia é a folga rotativa de cada colaborador é do escalonador (Fase 4);
+o modelo apenas recebe e valida.
