@@ -93,3 +93,20 @@ não só as geradas pela política.
 
 A **cobertura mínima por dia** é uma regra entre colaboradores (não por semana isolada) e
 entra na Fase 5.
+
+## Escalonador (implementado)
+
+- `RotationHistory` — histórico imutável de folgas rotativas por colaborador: `restCount`
+  (quantas vezes folgou em cada dia) e `lastRest` (folga da semana anterior).
+- `FairRotationScheduler` — para cada colaborador com folga rotativa, escolhe o dia por três
+  critérios, em ordem de peso:
+  1. **justiça**: menor contagem histórica naquele dia;
+  2. **sem repetir** a folga da semana anterior;
+  3. **equilíbrio de cobertura**: dia menos carregado nesta semana.
+
+  É **determinístico** (mesma entrada → mesma escala) e devolve as semanas mais o histórico
+  atualizado para a próxima rodada. A escala gerada passa em todas as regras R1–R4.
+
+A **cobertura mínima rígida** (um piso de pessoas por dia, com backtracking quando houver
+conflito) entra na Fase 5. Hoje a distribuição por dia é equilibrada de forma suave, não
+imposta como piso. A regra das **42h** segue como política configurável, ainda a confirmar.
