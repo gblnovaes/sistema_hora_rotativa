@@ -26,25 +26,35 @@ import { palette } from '@presentation/theme/tokens';
 
 const SIDEBAR_WIDTH = 236;
 
-const navItems = [
-  { label: 'Dashboard', icon: <DashboardIcon /> },
-  { label: 'Escala semanal', icon: <CalendarMonthIcon /> },
-  { label: 'Colaboradores', icon: <GroupIcon /> },
-  { label: 'Regras e cobertura', icon: <RuleIcon /> },
-  { label: 'Equilíbrio', icon: <InsightsIcon /> },
-  { label: 'Diagnóstico', icon: <MonitorHeartIcon /> },
+export type PageKey = 'dashboard' | 'schedule' | 'employees' | 'rules' | 'balance' | 'diagnostics';
+
+const navItems: { readonly label: string; readonly icon: ReactNode; readonly page: PageKey }[] = [
+  { label: 'Dashboard', icon: <DashboardIcon />, page: 'dashboard' },
+  { label: 'Escala semanal', icon: <CalendarMonthIcon />, page: 'schedule' },
+  { label: 'Colaboradores', icon: <GroupIcon />, page: 'employees' },
+  { label: 'Regras e cobertura', icon: <RuleIcon />, page: 'rules' },
+  { label: 'Equilíbrio', icon: <InsightsIcon />, page: 'balance' },
+  { label: 'Diagnóstico', icon: <MonitorHeartIcon />, page: 'diagnostics' },
 ];
 
 interface AppShellProps {
   readonly mode: 'light' | 'dark';
   readonly onToggleMode: () => void;
+  readonly activePage: PageKey;
+  readonly onNavigate: (page: PageKey) => void;
   readonly children: ReactNode;
 }
 
-export function AppShell({ mode, onToggleMode, children }: AppShellProps): JSX.Element {
+export function AppShell({
+  mode,
+  onToggleMode,
+  activePage,
+  onNavigate,
+  children,
+}: AppShellProps): JSX.Element {
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      <Sidebar />
+      <Sidebar activePage={activePage} onNavigate={onNavigate} />
       <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <Topbar mode={mode} onToggleMode={onToggleMode} />
         <Box component="main" sx={{ p: 3, flex: 1 }}>
@@ -55,7 +65,12 @@ export function AppShell({ mode, onToggleMode, children }: AppShellProps): JSX.E
   );
 }
 
-function Sidebar(): JSX.Element {
+interface SidebarProps {
+  readonly activePage: PageKey;
+  readonly onNavigate: (page: PageKey) => void;
+}
+
+function Sidebar({ activePage, onNavigate }: SidebarProps): JSX.Element {
   return (
     <Box
       component="nav"
@@ -88,12 +103,13 @@ function Sidebar(): JSX.Element {
       </Box>
 
       <List sx={{ mt: 2, flex: 1 }}>
-        {navItems.map((item, index) => {
-          const active = index === 0;
+        {navItems.map((item) => {
+          const active = activePage === item.page;
           return (
             <ListItemButton
               key={item.label}
               selected={active}
+              onClick={() => onNavigate(item.page)}
               sx={{
                 borderRadius: 2,
                 mb: 0.5,
