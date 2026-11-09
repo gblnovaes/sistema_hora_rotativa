@@ -107,6 +107,17 @@ entra na Fase 5.
   É **determinístico** (mesma entrada → mesma escala) e devolve as semanas mais o histórico
   atualizado para a próxima rodada. A escala gerada passa em todas as regras R1–R4.
 
-A **cobertura mínima rígida** (um piso de pessoas por dia, com backtracking quando houver
-conflito) entra na Fase 5. Hoje a distribuição por dia é equilibrada de forma suave, não
-imposta como piso. A regra das **42h** segue como política configurável, ainda a confirmar.
+## Cobertura mínima (implementado)
+
+- `CoveragePolicy` — piso de colaboradores por dia útil, por unidade (`uniform` ou `perUnit`).
+  Dele o escalonador deriva o teto de folgas por dia: `maxFolgas = totalDaUnidade − mínimo`.
+- O `FairRotationScheduler` recebe a cobertura em `generate(employees, history, { coverage })`.
+  A cobertura é uma restrição **rígida** (nenhum dia abaixo do piso); justiça, não repetir e
+  equilíbrio continuam **suaves**. Sem política de cobertura, nada restringe (comportamento da
+  Fase 4).
+- Como todo dia de segunda a sábado é candidato e o piso é por unidade, a busca gulosa com
+  controle de capacidade é ótima: acha uma escala válida sempre que existe e **falha
+  explicitamente** quando a demanda excede a capacidade total. Backtracking só seria necessário
+  com candidatos restritos (ex.: indisponibilidade por férias) — entra numa fase futura.
+
+A regra das **42h** segue como política configurável, ainda a confirmar.
