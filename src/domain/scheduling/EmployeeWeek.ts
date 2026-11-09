@@ -46,6 +46,29 @@ export class EmployeeWeek {
     return new EmployeeWeek(employee, assignments);
   }
 
+  /**
+   * Monta uma semana a partir de atribuições já definidas (edição manual,
+   * importação de planilha). Só garante que todos os dias foram atribuídos;
+   * a validação das regras de negócio fica por conta das `ScheduleRule`.
+   */
+  static fromAssignments(
+    employee: Employee,
+    assignments: Partial<Record<WeekDay, DayAssignment>>,
+  ): EmployeeWeek {
+    const entries = WEEK_DAYS.map((day): readonly [WeekDay, DayAssignment] => {
+      const value = assignments[day];
+      if (value === undefined) {
+        throw new Error(`Dia ${day} não foi atribuído na semana`);
+      }
+      return [day, value];
+    });
+
+    return new EmployeeWeek(
+      employee,
+      Object.fromEntries(entries) as Record<WeekDay, DayAssignment>,
+    );
+  }
+
   assignmentOf(day: WeekDay): DayAssignment {
     return this.assignments[day];
   }
@@ -56,5 +79,13 @@ export class EmployeeWeek {
 
   get workDays(): readonly WeekDay[] {
     return WEEK_DAYS.filter((day) => this.assignments[day] === DayAssignment.Work);
+  }
+
+  get fixedRestDays(): readonly WeekDay[] {
+    return WEEK_DAYS.filter((day) => this.assignments[day] === DayAssignment.FixedRest);
+  }
+
+  get rotatingRestDays(): readonly WeekDay[] {
+    return WEEK_DAYS.filter((day) => this.assignments[day] === DayAssignment.RotatingRest);
   }
 }

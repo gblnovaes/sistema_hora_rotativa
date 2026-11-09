@@ -73,3 +73,23 @@ unidade**, não como invariante global.
 
 A escolha de **qual** dia é a folga rotativa de cada colaborador é do escalonador (Fase 4);
 o modelo apenas recebe e valida.
+
+## Regras como validadores (implementado)
+
+Cada regra implementa `ScheduleRule` (Open/Closed: nova regra = nova classe, o validador
+não muda) e retorna `RuleViolation[]` para uma `EmployeeWeek` (vazio = ok).
+
+| Regra                        | Classe                        | Verifica                                        |
+| ---------------------------- | ----------------------------- | ----------------------------------------------- |
+| R1                           | `TwoRestDaysPerWeek`          | Exatamente 2 folgas na semana.                  |
+| R2 / R3                      | `FixedRestMatchesPolicy`      | Folgas fixas iguais às da política da unidade.  |
+| R3                           | `RotatingRestMatchesPolicy`   | Nº de folgas rotativas e dias permitidos.       |
+| R4                           | `NoSundayWork`                | Ninguém trabalha no domingo.                    |
+
+`ScheduleValidator` recebe as regras por injeção (Dependency Inversion), roda-as sobre um
+conjunto de semanas e agrega as violações; `defaultScheduleRules()` monta o conjunto R1–R4.
+`EmployeeWeek.fromAssignments` permite validar semanas vindas de edição manual ou importação,
+não só as geradas pela política.
+
+A **cobertura mínima por dia** é uma regra entre colaboradores (não por semana isolada) e
+entra na Fase 5.

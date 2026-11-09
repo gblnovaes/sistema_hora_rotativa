@@ -60,3 +60,25 @@ describe('EmployeeWeek — MOOCA', () => {
     expect(week.restDays).toHaveLength(2);
   });
 });
+
+describe('EmployeeWeek.fromAssignments', () => {
+  it('monta a semana a partir de atribuições prontas, sem validar as regras', () => {
+    const week = EmployeeWeek.fromAssignments(mooca(), {
+      [WeekDay.Monday]: DayAssignment.Work,
+      [WeekDay.Tuesday]: DayAssignment.Work,
+      [WeekDay.Wednesday]: DayAssignment.RotatingRest,
+      [WeekDay.Thursday]: DayAssignment.Work,
+      [WeekDay.Friday]: DayAssignment.Work,
+      [WeekDay.Saturday]: DayAssignment.Work,
+      [WeekDay.Sunday]: DayAssignment.FixedRest,
+    });
+    expect(week.assignmentOf(WeekDay.Wednesday)).toBe(DayAssignment.RotatingRest);
+    expect(week.restDays).toEqual([WeekDay.Wednesday, WeekDay.Sunday]);
+  });
+
+  it('rejeita quando falta atribuir algum dia', () => {
+    expect(() =>
+      EmployeeWeek.fromAssignments(mooca(), { [WeekDay.Monday]: DayAssignment.Work }),
+    ).toThrow();
+  });
+});
