@@ -5,6 +5,8 @@ export interface EmployeeRecord {
   readonly registration: string;
   readonly name: string;
   readonly unit: Unit;
+  /** Horário como aparece na planilha (ex.: `08:00h as 17:24h`). Opcional. */
+  readonly shift?: string;
 }
 
 /**
