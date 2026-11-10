@@ -4,6 +4,7 @@ import { buildTheme } from './theme/theme';
 import { AppShell, type PageKey } from './layout/AppShell';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { EmployeesPage } from './employees/EmployeesPage';
+import { WeeklySchedulePage } from './schedule/WeeklySchedulePage';
 
 function PlaceholderPage({ title }: { readonly title: string }): JSX.Element {
   return (
@@ -21,7 +22,7 @@ function PlaceholderPage({ title }: { readonly title: string }): JSX.Element {
 const PAGES: Record<PageKey, JSX.Element> = {
   dashboard: <DashboardPage />,
   employees: <EmployeesPage />,
-  schedule: <PlaceholderPage title="Escala semanal" />,
+  schedule: <WeeklySchedulePage />,
   rules: <PlaceholderPage title="Regras e cobertura" />,
   balance: <PlaceholderPage title="Equilíbrio" />,
   diagnostics: <PlaceholderPage title="Diagnóstico" />,
