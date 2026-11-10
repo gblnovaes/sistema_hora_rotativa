@@ -5,126 +5,245 @@ import { WeekDay } from '@domain/scheduling/WeekDay';
 import type { GeneratedSchedule, ScheduleGateway, ScheduleWeekView } from './scheduleGateway';
 import { DEFAULT_HORIZON_WEEKS, WeeklyScheduleViewModel } from './WeeklyScheduleViewModel';
 
-const row = {
-  registration: '2001',
-  name: 'Camila Andrade',
-  unit: Unit.Administrativo,
-  days: [{ day: WeekDay.Monday, assignment: DayAssignment.Work }],
+const moocaRow = {
+  registration: '3001',
+  name: 'Rafael',
+  unit: Unit.Mooca,
+  days: [
+    { day: WeekDay.Monday, assignment: DayAssignment.Work },
+    { day: WeekDay.Wednesday, assignment: DayAssignment.RotatingRest },
+    { day: WeekDay.Friday, assignment: DayAssignment.Work },
+  ],
 };
 
-function week(index: number, violations: readonly string[] = []): ScheduleWeekView {
+function week(index: number): ScheduleWeekView {
   return {
     index,
     startDate: `2026-11-${String(9 + index * 7).padStart(2, '0')}`,
-    rows: [row],
-    violations,
+    rows: [moocaRow],
+    violations: [],
+  };
+}
+
+function schedule(weekCount: number, savedAt = '2026-11-10T11:00:00.000Z'): GeneratedSchedule {
+  return {
+    weeks: Array.from({ length: weekCount }, (_, index) => week(index)),
+    savedAt,
+    outdated: false,
   };
 }
 
 class FakeGateway implements ScheduleGateway {
-  readonly requested: number[] = [];
+  readonly calls: string[] = [];
   readonly moves: { weekIndex: number; registration: string; day: WeekDay }[] = [];
+  saved: GeneratedSchedule | null;
+  failWith: Error | null = null;
 
-  constructor(private readonly result: GeneratedSchedule | Error) {}
+  constructor(saved: GeneratedSchedule | null) {
+    this.saved = saved;
+  }
 
+  load(weekCount: number): Promise<GeneratedSchedule | null> {
+    this.calls.push(`load:${weekCount}`);
+    return this.answer(this.saved);
+  }
   generate(weekCount: number): Promise<GeneratedSchedule> {
-    this.requested.push(weekCount);
-    return this.answer();
+    this.calls.push(`generate:${weekCount}`);
+    this.saved = schedule(weekCount, '2026-11-10T12:00:00.000Z');
+    return this.answer(this.saved);
   }
   moveRotatingRest(
     weekIndex: number,
     registration: string,
     day: WeekDay,
   ): Promise<GeneratedSchedule> {
+    this.calls.push('move');
     this.moves.push({ weekIndex, registration, day });
-    return this.answer();
+    return this.answer(schedule(5, '2026-11-10T13:00:00.000Z'));
   }
-  private answer(): Promise<GeneratedSchedule> {
-    return this.result instanceof Error
-      ? Promise.reject(this.result)
-      : Promise.resolve(this.result);
+  private answer<T>(value: T): Promise<T> {
+    return this.failWith === null ? Promise.resolve(value) : Promise.reject(this.failWith);
   }
 }
 
-describe('WeeklyScheduleViewModel', () => {
-  it('pede ao menos um mês por padrão e publica as semanas', async () => {
-    const gateway = new FakeGateway({ weeks: [week(0), week(1, ['2001: exemplo'])] });
-    const vm = new WeeklyScheduleViewModel(gateway);
+async function opened(gateway = new FakeGateway(schedule(5))): Promise<{
+  vm: WeeklyScheduleViewModel;
+  gateway: FakeGateway;
+}> {
+  const vm = new WeeklyScheduleViewModel(gateway);
+  await vm.load();
+  return { vm, gateway };
+}
 
-    await vm.generate();
+describe('WeeklyScheduleViewModel: abrir', () => {
+  it('abre a escala salva sem gerar outra', async () => {
+    const { vm, gateway } = await opened();
 
-    expect(gateway.requested).toEqual([DEFAULT_HORIZON_WEEKS]);
+    expect(gateway.calls).toEqual([`load:${DEFAULT_HORIZON_WEEKS}`]);
     expect(DEFAULT_HORIZON_WEEKS).toBeGreaterThanOrEqual(5);
     const state = vm.store.getState();
-    expect(state.weeks).toHaveLength(2);
-    expect(state.selectedIndex).toBe(0);
+    expect(state.weeks).toHaveLength(5);
+    expect(state.savedAt).toBe('2026-11-10T11:00:00.000Z');
     expect(state.loading).toBe(false);
-    expect(state.error).toBeNull();
   });
 
-  it('muda o horizonte e gera de novo com a nova quantidade de semanas', async () => {
-    const gateway = new FakeGateway({ weeks: [week(0)] });
-    const vm = new WeeklyScheduleViewModel(gateway);
+  it('na primeira vez, sem escala salva, gera e salva a primeira sem pedir confirmação', async () => {
+    const { vm, gateway } = await opened(new FakeGateway(null));
+
+    expect(gateway.calls).toEqual(['load:5', 'generate:5']);
+    expect(vm.store.getState().pending).toBeNull();
+    expect(vm.store.getState().weeks).toHaveLength(5);
+  });
+
+  it('repassa o aviso de cadastro desatualizado', async () => {
+    const { vm } = await opened(new FakeGateway({ ...schedule(5), outdated: true }));
+    expect(vm.store.getState().outdated).toBe(true);
+  });
+
+  it('muda o horizonte reabrindo a escala salva, sem gerar de novo', async () => {
+    const { vm, gateway } = await opened();
 
     await vm.setHorizon(9);
 
     expect(vm.store.getState().horizonWeeks).toBe(9);
-    expect(gateway.requested).toEqual([9]);
+    expect(gateway.calls).toEqual(['load:5', 'load:9']);
   });
 
   it('seleciona só semanas que existem', async () => {
-    const vm = new WeeklyScheduleViewModel(new FakeGateway({ weeks: [week(0), week(1)] }));
-    await vm.generate();
+    const { vm } = await opened();
 
-    vm.selectWeek(1);
-    expect(vm.store.getState().selectedIndex).toBe(1);
+    vm.selectWeek(3);
     vm.selectWeek(9);
     vm.selectWeek(-1);
-    expect(vm.store.getState().selectedIndex).toBe(1);
+
+    expect(vm.store.getState().selectedIndex).toBe(3);
   });
 
-  it('volta para a semana atual ao gerar de novo', async () => {
-    const vm = new WeeklyScheduleViewModel(new FakeGateway({ weeks: [week(0), week(1)] }));
-    await vm.generate();
-    vm.selectWeek(1);
+  it('guarda o erro e mantém o que já estava na tela quando abrir falha', async () => {
+    const { vm, gateway } = await opened();
+    gateway.failWith = new Error('disco cheio');
 
-    await vm.generate();
+    await vm.load();
 
+    expect(vm.store.getState().error).toBe('disco cheio');
+    expect(vm.store.getState().loading).toBe(false);
+    expect(vm.store.getState().weeks).toHaveLength(5);
+  });
+});
+
+describe('WeeklyScheduleViewModel: confirmar antes de alterar', () => {
+  it('gerar de novo só pede a confirmação e não executa nada ainda', async () => {
+    const { vm, gateway } = await opened();
+
+    await vm.requestRegenerate();
+
+    expect(vm.store.getState().pending).toEqual({ kind: 'regenerate' });
+    expect(gateway.calls).toEqual(['load:5']);
+  });
+
+  it('confirmar gera a nova escala, salva e limpa o pedido', async () => {
+    const { vm, gateway } = await opened();
+    vm.selectWeek(2);
+    await vm.requestRegenerate();
+
+    await vm.confirm();
+
+    expect(gateway.calls).toEqual(['load:5', 'generate:5']);
+    expect(vm.store.getState().pending).toBeNull();
     expect(vm.store.getState().selectedIndex).toBe(0);
+    expect(vm.store.getState().savedAt).toBe('2026-11-10T12:00:00.000Z');
   });
 
-  it('guarda a mensagem de erro e preserva a escala anterior quando a geração falha', async () => {
-    const failing = new WeeklyScheduleViewModel(new FakeGateway(new Error('sem cobertura')));
-    failing.store.setState({ weeks: [week(0)] });
+  it('cancelar gerar de novo não muda nada', async () => {
+    const { vm, gateway } = await opened();
+    await vm.requestRegenerate();
 
-    await failing.generate();
+    vm.cancel();
 
-    expect(failing.store.getState().error).toBe('sem cobertura');
-    expect(failing.store.getState().loading).toBe(false);
-    expect(failing.store.getState().weeks).toEqual([week(0)]);
+    expect(vm.store.getState().pending).toBeNull();
+    expect(gateway.calls).toEqual(['load:5']);
+    expect(vm.store.getState().savedAt).toBe('2026-11-10T11:00:00.000Z');
   });
 
-  it('troca a folga na semana selecionada e aplica o plano refeito', async () => {
-    const gateway = new FakeGateway({ weeks: [week(0), week(1), week(2)] });
-    const vm = new WeeklyScheduleViewModel(gateway);
-    await vm.generate();
+  it('trocar uma folga descreve a mudança e espera a confirmação', async () => {
+    const { vm, gateway } = await opened();
     vm.selectWeek(2);
 
-    await vm.moveRotatingRest('2001', WeekDay.Friday);
+    vm.requestMove('3001', WeekDay.Friday);
 
-    expect(gateway.moves).toEqual([{ weekIndex: 2, registration: '2001', day: WeekDay.Friday }]);
-    expect(vm.store.getState().weeks).toHaveLength(3);
-    expect(vm.store.getState().selectedIndex).toBe(2);
-    expect(vm.store.getState().error).toBeNull();
+    expect(vm.store.getState().pending).toEqual({
+      kind: 'move',
+      weekIndex: 2,
+      registration: '3001',
+      name: 'Rafael',
+      from: WeekDay.Wednesday,
+      to: WeekDay.Friday,
+    });
+    expect(gateway.moves).toEqual([]);
   });
 
-  it('preserva o plano quando a troca é recusada', async () => {
-    const vm = new WeeklyScheduleViewModel(new FakeGateway(new Error('sem rotativa')));
-    vm.store.setState({ weeks: [week(0)] });
+  it('confirmar a troca executa na semana selecionada e atualiza o horário salvo', async () => {
+    const { vm, gateway } = await opened();
+    vm.selectWeek(2);
+    vm.requestMove('3001', WeekDay.Friday);
 
-    await vm.moveRotatingRest('2001', WeekDay.Monday);
+    await vm.confirm();
+
+    expect(gateway.moves).toEqual([{ weekIndex: 2, registration: '3001', day: WeekDay.Friday }]);
+    expect(vm.store.getState().pending).toBeNull();
+    expect(vm.store.getState().selectedIndex).toBe(2);
+    expect(vm.store.getState().savedAt).toBe('2026-11-10T13:00:00.000Z');
+  });
+
+  it('cancelar a troca não chama o gateway', async () => {
+    const { vm, gateway } = await opened();
+    vm.requestMove('3001', WeekDay.Friday);
+
+    vm.cancel();
+
+    expect(vm.store.getState().pending).toBeNull();
+    expect(gateway.moves).toEqual([]);
+  });
+
+  it('ignora o pedido de troca de quem não está na semana', async () => {
+    const { vm } = await opened();
+
+    vm.requestMove('999', WeekDay.Friday);
+
+    expect(vm.store.getState().pending).toBeNull();
+  });
+
+  it('confirmar sem nada pendente não faz nada', async () => {
+    const { vm, gateway } = await opened();
+
+    await vm.confirm();
+    vm.cancel();
+
+    expect(gateway.calls).toEqual(['load:5']);
+  });
+
+  it('se a troca confirmada for recusada, mostra o erro e preserva a escala', async () => {
+    const { vm, gateway } = await opened();
+    vm.requestMove('3001', WeekDay.Friday);
+    gateway.failWith = new Error('sem rotativa');
+
+    await vm.confirm();
 
     expect(vm.store.getState().error).toBe('sem rotativa');
-    expect(vm.store.getState().weeks).toEqual([week(0)]);
+    expect(vm.store.getState().weeks).toHaveLength(5);
+    expect(vm.store.getState().pending).toBeNull();
+  });
+
+  it('sem escala na tela, gerar não precisa de confirmação', async () => {
+    const gateway = new FakeGateway(null);
+    gateway.failWith = new Error('sem cobertura');
+    const vm = new WeeklyScheduleViewModel(gateway);
+    await vm.load();
+    gateway.failWith = null;
+
+    await vm.requestRegenerate();
+
+    expect(vm.store.getState().pending).toBeNull();
+    expect(vm.store.getState().weeks).toHaveLength(5);
   });
 });

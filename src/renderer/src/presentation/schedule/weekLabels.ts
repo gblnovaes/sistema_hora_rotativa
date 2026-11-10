@@ -16,3 +16,10 @@ export function weekRangeLabel(startDate: string): string {
 export function weekTabLabel(index: number, startDate: string): string {
   return index === 0 ? `Atual · ${weekRangeLabel(startDate)}` : weekRangeLabel(startDate);
 }
+
+/** Quando a escala foi salva, como `10/11/2026 às 08:33`. */
+export function savedAtLabel(iso: string): string {
+  const date = new Date(iso);
+  const pad = (value: number): string => String(value).padStart(2, '0');
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} às ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}

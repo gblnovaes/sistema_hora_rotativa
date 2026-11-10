@@ -29,19 +29,32 @@ export interface ScheduleWeekView {
 /** Escala do período planejado, da semana atual em diante. */
 export interface GeneratedSchedule {
   readonly weeks: readonly ScheduleWeekView[];
+  /** Momento em que a escala foi salva pela última vez (ISO 8601). */
+  readonly savedAt: string;
+  /**
+   * `true` quando o cadastro de colaboradores mudou depois que a escala foi salva:
+   * a grade ainda mostra a equipe da época.
+   */
+  readonly outdated: boolean;
 }
 
 /**
  * Porta da escala no renderer.
  *
- * O ViewModel só conhece esta interface. Hoje o adaptador lê o cadastro local e
- * roda o escalonador no renderer; amanhã pode chamar o processo main via IPC.
+ * O ViewModel só conhece esta interface. Hoje o adaptador lê o cadastro local, roda o
+ * escalonador no renderer e guarda a escala em `localStorage`; amanhã pode chamar o
+ * processo main via IPC.
  */
 export interface ScheduleGateway {
-  /** Gera `weekCount` semanas seguidas, começando na semana atual. */
+  /**
+   * Abre a escala salva, mostrando `weekCount` semanas a partir da semana atual e
+   * acrescentando semanas quando o tempo passou. `null` quando não há escala salva.
+   */
+  load(weekCount: number): Promise<GeneratedSchedule | null>;
+  /** Gera uma escala nova, descarta a salva (e suas trocas manuais) e salva a nova. */
   generate(weekCount: number): Promise<GeneratedSchedule>;
   /**
-   * Move a folga rotativa do colaborador para `day` na semana `weekIndex`.
+   * Move a folga rotativa do colaborador para `day` na semana `weekIndex` e salva.
    * As semanas seguintes são refeitas; as anteriores ficam como estavam.
    */
   moveRotatingRest(

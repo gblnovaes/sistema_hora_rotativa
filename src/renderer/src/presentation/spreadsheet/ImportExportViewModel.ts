@@ -17,15 +17,18 @@ export interface ImportExportState {
   readonly preview: ParsedSpreadsheet | null;
   /** Unidade forçada para todos; `null` deduz pelas folgas da planilha. */
   readonly unit: Unit | null;
+  /** Semanas da escala salva; vazio quando ainda não há escala salva. */
   readonly weeks: readonly ScheduleWeekView[];
+  /** O cadastro mudou depois de a escala ser salva. */
+  readonly outdated: boolean;
   readonly message: string | null;
   readonly error: string | null;
 }
 
 /**
  * ViewModel de importar e exportar planilha (MVVM). Lê o CSV, mostra o que seria
- * importado e só grava no cadastro quando o usuário confirma. A exportação gera a
- * escala do cadastro no padrão da planilha base. Não conhece React nem o DOM.
+ * importado e só grava no cadastro quando o usuário confirma. A exportação leva a
+ * escala salva (com as trocas manuais) no padrão da planilha base. Não conhece React nem o DOM.
  */
 export class ImportExportViewModel {
   readonly store: StoreApi<ImportExportState>;
@@ -42,6 +45,7 @@ export class ImportExportViewModel {
       preview: null,
       unit: null,
       weeks: [],
+      outdated: false,
       message: null,
       error: null,
     }));
@@ -93,14 +97,15 @@ export class ImportExportViewModel {
     await this.loadWeeks();
   }
 
-  /** Planeja as semanas que poderão ser exportadas, a partir do cadastro atual. */
+  /** Lê a escala salva (com as trocas manuais). Não gera nem altera nada. */
   async loadWeeks(): Promise<void> {
     try {
-      const { weeks } = await this.schedule.generate(EXPORT_WEEKS);
-      this.store.setState({ weeks });
+      const saved = await this.schedule.load(EXPORT_WEEKS);
+      this.store.setState({ weeks: saved?.weeks ?? [], outdated: saved?.outdated ?? false });
     } catch (error) {
       this.store.setState({
         weeks: [],
+        outdated: false,
         error: error instanceof Error ? error.message : String(error),
       });
     }
@@ -113,7 +118,8 @@ export class ImportExportViewModel {
     const last = chosen[chosen.length - 1];
     if (first === undefined || last === undefined || first.rows.length === 0) {
       this.store.setState({
-        error: 'Cadastre ou importe colaboradores antes de exportar a escala.',
+        error:
+          'Não há escala salva com colaboradores. Cadastre ou importe a equipe e abra a Escala semanal.',
         message: null,
       });
       return;

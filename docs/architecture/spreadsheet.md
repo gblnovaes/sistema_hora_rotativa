@@ -33,8 +33,10 @@ Nº, Colaborador, Horário / Turno, Segunda … Domingo, Total de folgas
 
 ## Exportação
 
-Gera a escala planejada a partir do cadastro (5 semanas): uma semana ou todas num arquivo.
-Trocas manuais feitas na tela Escala semanal **não** entram na exportação.
+Exporta a **escala salva** (5 semanas), com as trocas manuais: uma semana ou todas num arquivo.
+A exportação só lê; não gera nem altera a escala. Sem escala salva, abra a Escala semanal
+para gerar a primeira. Se o cadastro mudou depois do salvamento, a página avisa que a
+planilha não inclui as mudanças.
 
 ## Peças
 

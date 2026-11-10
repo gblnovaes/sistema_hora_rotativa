@@ -5,6 +5,7 @@ import { WeekDay } from '@domain/scheduling/WeekDay';
 import type { EmployeeDirectory, EmployeeRecord } from '@presentation/employees/employeeDirectory';
 import type { CoverageSettings, CoverageSettingsStore } from '@presentation/rules/coverageSettings';
 import { LocalScheduleGateway } from './LocalScheduleGateway';
+import type { SavedSchedule, ScheduleStore } from './scheduleStore';
 
 class FixedCoverage implements CoverageSettingsStore {
   constructor(private readonly settings: CoverageSettings) {}
@@ -25,6 +26,19 @@ class MemoryDirectory implements EmployeeDirectory {
     return Promise.resolve();
   }
   remove(): Promise<void> {
+    return Promise.resolve();
+  }
+}
+
+class MemoryScheduleStore implements ScheduleStore {
+  saved: SavedSchedule | null = null;
+  saves = 0;
+  load(): Promise<SavedSchedule | null> {
+    return Promise.resolve(this.saved);
+  }
+  save(schedule: SavedSchedule): Promise<void> {
+    this.saved = schedule;
+    this.saves += 1;
     return Promise.resolve();
   }
 }
@@ -64,6 +78,7 @@ describe('LocalScheduleGateway', () => {
         { registration: '2001', name: 'Camila Andrade', unit: Unit.Administrativo },
       ]),
       undefined,
+      new MemoryScheduleStore(),
       TUESDAY,
     );
 
@@ -90,6 +105,7 @@ describe('LocalScheduleGateway', () => {
     const gateway = new LocalScheduleGateway(
       new MemoryDirectory([{ registration: '3001', name: 'Rafael', unit: Unit.Mooca }]),
       undefined,
+      new MemoryScheduleStore(),
       TUESDAY,
     );
 
@@ -110,6 +126,7 @@ describe('LocalScheduleGateway', () => {
     const gateway = new LocalScheduleGateway(
       new MemoryDirectory([{ registration: '3001', name: 'Rafael', unit: Unit.Mooca }]),
       undefined,
+      new MemoryScheduleStore(),
       TUESDAY,
     );
 
@@ -128,6 +145,7 @@ describe('LocalScheduleGateway', () => {
       new FixedCoverage({
         minimumByUnit: { [Unit.Administrativo]: 1, [Unit.Mooca]: 1 },
       }),
+      new MemoryScheduleStore(),
       TUESDAY,
     );
 
@@ -145,6 +163,7 @@ describe('LocalScheduleGateway', () => {
       new FixedCoverage({
         minimumByUnit: { [Unit.Administrativo]: 1, [Unit.Mooca]: 1 },
       }),
+      new MemoryScheduleStore(),
       TUESDAY,
     );
 
@@ -152,7 +171,12 @@ describe('LocalScheduleGateway', () => {
   });
 
   it('devolve semanas vazias quando não há colaboradores', async () => {
-    const gateway = new LocalScheduleGateway(new MemoryDirectory([]), undefined, TUESDAY);
+    const gateway = new LocalScheduleGateway(
+      new MemoryDirectory([]),
+      undefined,
+      new MemoryScheduleStore(),
+      TUESDAY,
+    );
     const { weeks } = await gateway.generate(2);
 
     expect(weeks).toHaveLength(2);
@@ -165,6 +189,7 @@ describe('LocalScheduleGateway', () => {
     const gateway = new LocalScheduleGateway(
       new MemoryDirectory([{ registration: '3001', name: 'Rafael', unit: Unit.Mooca }]),
       undefined,
+      new MemoryScheduleStore(),
       TUESDAY,
     );
     await expect(gateway.moveRotatingRest(0, '3001', WeekDay.Friday)).rejects.toThrow(
@@ -184,5 +209,124 @@ describe('LocalScheduleGateway', () => {
     expect(cell(row, WeekDay.Sunday)).toBe(DayAssignment.FixedRest);
     expect(restDay(only(only(moved.weeks, 3).rows))).not.toBe(target);
     expect(moved.weeks.every((week) => week.violations.length === 0)).toBe(true);
+  });
+});
+
+describe('LocalScheduleGateway: escala salva', () => {
+  const NEXT_WEEK = (): Date => new Date(2026, 10, 17); // terça seguinte
+
+  const team = [
+    { registration: '1', name: 'Ana', unit: Unit.Mooca },
+    { registration: '2', name: 'Bia', unit: Unit.Administrativo },
+  ];
+
+  function gatewayOn(
+    store: MemoryScheduleStore,
+    today: () => Date = TUESDAY,
+    records = team,
+  ): LocalScheduleGateway {
+    return new LocalScheduleGateway(new MemoryDirectory(records), undefined, store, today);
+  }
+
+  it('não há escala salva antes da primeira geração', async () => {
+    expect(await gatewayOn(new MemoryScheduleStore()).load(5)).toBeNull();
+  });
+
+  it('gerar salva a escala', async () => {
+    const store = new MemoryScheduleStore();
+    const generated = await gatewayOn(store).generate(5);
+
+    expect(store.saves).toBe(1);
+    expect(store.saved?.weeks).toHaveLength(5);
+    expect(generated.savedAt).toBe(store.saved?.savedAt);
+    expect(generated.outdated).toBe(false);
+  });
+
+  it('reabrir devolve a mesma escala, inclusive a troca manual', async () => {
+    const store = new MemoryScheduleStore();
+    const first = gatewayOn(store);
+    const generated = await first.generate(5);
+    const previous = restDay(only(only(generated.weeks, 1).rows, 0));
+    const target = previous === WeekDay.Friday ? WeekDay.Tuesday : WeekDay.Friday;
+    const moved = await first.moveRotatingRest(1, '1', target);
+
+    const reopened = await gatewayOn(store).load(5);
+
+    expect(reopened?.weeks).toEqual(moved.weeks);
+    expect(restDay(only(only(reopened?.weeks ?? [], 1).rows, 0))).toBe(target);
+    expect(reopened?.savedAt).toBe(moved.savedAt);
+  });
+
+  it('cada troca manual é salva', async () => {
+    const store = new MemoryScheduleStore();
+    const gateway = gatewayOn(store);
+    await gateway.generate(5);
+    await gateway.moveRotatingRest(0, '1', WeekDay.Friday);
+
+    expect(store.saves).toBe(2);
+    expect(store.saved?.weeks[0]?.rests['1']).toBe(WeekDay.Friday);
+    expect(store.saved?.weeks[0]?.rests['2']).toBeNull();
+  });
+
+  it('com o passar das semanas, esconde as passadas e acrescenta as que faltam', async () => {
+    const store = new MemoryScheduleStore();
+    const original = await gatewayOn(store).generate(5);
+    const savedAt = store.saved?.savedAt;
+
+    const later = await gatewayOn(store, NEXT_WEEK).load(5);
+
+    expect(later?.weeks.map((week) => week.startDate)).toEqual([
+      '2026-11-16',
+      '2026-11-23',
+      '2026-11-30',
+      '2026-12-07',
+      '2026-12-14',
+    ]);
+    // As semanas que já existiam continuam como estavam.
+    expect(later?.weeks.slice(0, 4)).toEqual(
+      original.weeks.slice(1).map((week, index) => ({ ...week, index })),
+    );
+    expect(store.saved?.weeks).toHaveLength(6);
+    // Estender não conta como edição do usuário.
+    expect(later?.savedAt).toBe(savedAt);
+  });
+
+  it('uma troca depois de semanas passadas atinge a semana certa', async () => {
+    const store = new MemoryScheduleStore();
+    await gatewayOn(store).generate(5);
+    const gateway = gatewayOn(store, NEXT_WEEK);
+    const loaded = await gateway.load(5);
+    const previous = restDay(only(only(loaded?.weeks ?? [], 0).rows, 0));
+    const target = previous === WeekDay.Friday ? WeekDay.Tuesday : WeekDay.Friday;
+
+    await gateway.moveRotatingRest(0, '1', target);
+
+    expect(store.saved?.weeks[0]?.rests['1']).not.toBe(target); // semana passada intacta
+    expect(store.saved?.weeks[1]?.rests['1']).toBe(target);
+  });
+
+  it('avisa quando o cadastro mudou depois de salvar a escala', async () => {
+    const store = new MemoryScheduleStore();
+    await gatewayOn(store).generate(5);
+
+    const withNewHire = await gatewayOn(store, TUESDAY, [
+      ...team,
+      { registration: '3', name: 'Caio', unit: Unit.Mooca },
+    ]).load(5);
+
+    expect(withNewHire?.outdated).toBe(true);
+    // A grade continua mostrando a equipe salva.
+    expect(only(withNewHire?.weeks ?? []).rows).toHaveLength(2);
+  });
+
+  it('descarta uma escala salva que contradiz as regras', async () => {
+    const store = new MemoryScheduleStore();
+    store.saved = {
+      savedAt: '2026-11-10T10:00:00.000Z',
+      employees: [{ registration: '1', name: 'Ana', unit: Unit.Mooca }],
+      weeks: [{ startDate: '2026-11-09', rests: { '1': WeekDay.Sunday } }],
+    };
+
+    expect(await gatewayOn(store).load(5)).toBeNull();
   });
 });
