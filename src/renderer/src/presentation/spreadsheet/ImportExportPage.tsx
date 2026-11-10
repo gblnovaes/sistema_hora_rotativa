@@ -22,6 +22,7 @@ import { SurfaceCard } from '@presentation/components/SurfaceCard';
 import { sessionDiagnostics } from '@presentation/diagnostics/SessionDiagnostics';
 import { LocalStorageEmployeeDirectory } from '@presentation/employees/LocalStorageEmployeeDirectory';
 import { LocalScheduleGateway } from '@presentation/schedule/LocalScheduleGateway';
+import { LocalStorageScheduleStore } from '@presentation/schedule/LocalStorageScheduleStore';
 import { UNIT_LABEL } from '@presentation/schedule/scheduleLabels';
 import { weekTabLabel } from '@presentation/schedule/weekLabels';
 import { LocalStorageCoverageSettings } from '@presentation/rules/LocalStorageCoverageSettings';
@@ -36,7 +37,11 @@ export function ImportExportPage(): JSX.Element {
     const directory = new LocalStorageEmployeeDirectory(window.localStorage);
     return new ImportExportViewModel(
       directory,
-      new LocalScheduleGateway(directory, new LocalStorageCoverageSettings(window.localStorage)),
+      new LocalScheduleGateway(
+        directory,
+        new LocalStorageCoverageSettings(window.localStorage),
+        new LocalStorageScheduleStore(window.localStorage),
+      ),
       new BrowserFileSaver(),
       sessionDiagnostics,
     );
@@ -52,6 +57,7 @@ export function ImportExportPage(): JSX.Element {
   const preview = useStore(viewModel.store, (state) => state.preview);
   const unit = useStore(viewModel.store, (state) => state.unit);
   const weeks = useStore(viewModel.store, (state) => state.weeks);
+  const outdated = useStore(viewModel.store, (state) => state.outdated);
   const message = useStore(viewModel.store, (state) => state.message);
   const error = useStore(viewModel.store, (state) => state.error);
 
@@ -183,6 +189,18 @@ export function ImportExportPage(): JSX.Element {
 
       <SurfaceCard>
         <SectionHeader title="Exportar escala" />
+        {weeks.length === 0 && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Ainda não há escala salva. Abra a Escala semanal para gerar a primeira e depois exporte
+            aqui.
+          </Alert>
+        )}
+        {outdated && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            O cadastro mudou depois que a escala foi salva, então a planilha não inclui as mudanças.
+            Gere a escala de novo na Escala semanal antes de exportar.
+          </Alert>
+        )}
         <Stack direction="row" spacing={2} alignItems="center">
           <TextField
             select
@@ -213,7 +231,7 @@ export function ImportExportPage(): JSX.Element {
         </Stack>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
           A planilha sai no padrão da base, com Trabalho e Folga em cada dia. Ela traz a escala
-          gerada a partir do cadastro; trocas manuais feitas na tela Escala semanal não entram.
+          salva, inclusive as trocas manuais feitas na tela Escala semanal.
         </Typography>
       </SurfaceCard>
     </Stack>

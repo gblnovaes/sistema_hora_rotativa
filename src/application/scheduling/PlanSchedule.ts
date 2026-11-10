@@ -26,6 +26,12 @@ export interface PlanInput {
   readonly coverage?: CoveragePolicy;
 }
 
+export interface ExtendPlanInput {
+  readonly plan: readonly PlannedWeek[];
+  readonly weekCount: number;
+  readonly coverage?: CoveragePolicy;
+}
+
 export interface SwapInPlanInput {
   readonly plan: readonly PlannedWeek[];
   readonly weekIndex: number;
@@ -52,6 +58,24 @@ export class PlanSchedule {
       [],
       RotationHistory.empty(),
       input.employees,
+      input.weekCount,
+      input.coverage,
+    );
+  }
+
+  /**
+   * Acrescenta semanas ao fim de um plano existente, continuando a rotação a partir do
+   * histórico de todas as semanas dele. As semanas que já existem não mudam.
+   */
+  extendPlan(input: ExtendPlanInput): readonly PlannedWeek[] {
+    const last = input.plan[input.plan.length - 1];
+    if (last === undefined) {
+      throw new Error('Não há plano para estender');
+    }
+    return this.extend(
+      input.plan,
+      this.historyOf(input.plan),
+      last.weeks.map((week) => week.employee),
       input.weekCount,
       input.coverage,
     );

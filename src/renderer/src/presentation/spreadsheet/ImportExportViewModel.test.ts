@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Unit } from '@domain/scheduling/Unit';
+import { WeekDay } from '@domain/scheduling/WeekDay';
 import type { EmployeeDirectory, EmployeeRecord } from '@presentation/employees/employeeDirectory';
 import { LocalScheduleGateway } from '@presentation/schedule/LocalScheduleGateway';
+import type { SavedSchedule, ScheduleStore } from '@presentation/schedule/scheduleStore';
 import type { FileSaver } from './fileSaver';
 import { ImportExportViewModel } from './ImportExportViewModel';
 
@@ -22,6 +24,17 @@ class MemoryDirectory implements EmployeeDirectory {
   }
 }
 
+class MemoryScheduleStore implements ScheduleStore {
+  saved: SavedSchedule | null = null;
+  load(): Promise<SavedSchedule | null> {
+    return Promise.resolve(this.saved);
+  }
+  save(schedule: SavedSchedule): Promise<void> {
+    this.saved = schedule;
+    return Promise.resolve();
+  }
+}
+
 class RecordingSaver implements FileSaver {
   readonly saved: { fileName: string; content: string; mimeType: string }[] = [];
   save(fileName: string, content: string, mimeType: string): void {
@@ -38,11 +51,17 @@ function setup(initial: readonly EmployeeRecord[] = []): {
   vm: ImportExportViewModel;
   directory: MemoryDirectory;
   saver: RecordingSaver;
+  schedule: LocalScheduleGateway;
 } {
   const directory = new MemoryDirectory(initial);
   const saver = new RecordingSaver();
-  const schedule = new LocalScheduleGateway(directory, undefined, () => new Date(2026, 10, 10));
-  return { vm: new ImportExportViewModel(directory, schedule, saver), directory, saver };
+  const schedule = new LocalScheduleGateway(
+    directory,
+    undefined,
+    new MemoryScheduleStore(),
+    () => new Date(2026, 10, 10),
+  );
+  return { vm: new ImportExportViewModel(directory, schedule, saver), directory, saver, schedule };
 }
 
 describe('ImportExportViewModel', () => {
@@ -57,7 +76,10 @@ describe('ImportExportViewModel', () => {
   });
 
   it('importa ao confirmar, contando novos e atualizados', async () => {
-    const { vm, directory } = setup([{ registration: '667', name: 'Antigo', unit: Unit.Mooca }]);
+    const { vm, directory, schedule } = setup([
+      { registration: '667', name: 'Antigo', unit: Unit.Mooca },
+    ]);
+    await schedule.generate(5);
     vm.previewImport('base.csv', CSV);
 
     await vm.confirmImport();
@@ -71,7 +93,9 @@ describe('ImportExportViewModel', () => {
     });
     expect(vm.store.getState().message).toBe('Importação concluída: 1 novo(s), 1 atualizado(s).');
     expect(vm.store.getState().preview).toBeNull();
+    // A escala salva é anterior à importação: o export avisa que ela está desatualizada.
     expect(vm.store.getState().weeks).toHaveLength(5);
+    expect(vm.store.getState().outdated).toBe(true);
   });
 
   it('reinterpreta o arquivo ao forçar a unidade', () => {
@@ -101,9 +125,10 @@ describe('ImportExportViewModel', () => {
   });
 
   it('exporta uma semana no padrão da planilha, com o horário do cadastro', async () => {
-    const { vm, saver } = setup([
+    const { vm, saver, schedule } = setup([
       { registration: '667', name: 'Eliana', unit: Unit.Administrativo, shift: '08:00h as 17:24h' },
     ]);
+    await schedule.generate(5);
     await vm.loadWeeks();
 
     await vm.exportCsv(0);
@@ -118,7 +143,8 @@ describe('ImportExportViewModel', () => {
   });
 
   it('exporta todas as semanas num arquivo só', async () => {
-    const { vm, saver } = setup([{ registration: '1', name: 'Ana', unit: Unit.Mooca }]);
+    const { vm, saver, schedule } = setup([{ registration: '1', name: 'Ana', unit: Unit.Mooca }]);
+    await schedule.generate(5);
     await vm.loadWeeks();
 
     await vm.exportCsv('all');
@@ -127,14 +153,14 @@ describe('ImportExportViewModel', () => {
     expect(saver.saved[0]?.content.match(/Período de/g)).toHaveLength(5);
   });
 
-  it('não exporta sem colaboradores', async () => {
+  it('não exporta sem escala salva com colaboradores', async () => {
     const { vm, saver } = setup();
     await vm.loadWeeks();
 
     await vm.exportCsv(0);
 
     expect(saver.saved).toEqual([]);
-    expect(vm.store.getState().error).toMatch(/Cadastre ou importe/);
+    expect(vm.store.getState().error).toMatch(/Não há escala salva/);
   });
 
   it('expõe o erro quando a escala não pode ser planejada', async () => {
@@ -142,7 +168,8 @@ describe('ImportExportViewModel', () => {
     const failing = new ImportExportViewModel(
       new MemoryDirectory(),
       {
-        generate: () => Promise.reject(new Error('sem cobertura')),
+        load: () => Promise.reject(new Error('sem cobertura')),
+        generate: () => Promise.reject(new Error('n/a')),
         moveRotatingRest: () => Promise.reject(new Error('n/a')),
       },
       new RecordingSaver(),
@@ -151,5 +178,26 @@ describe('ImportExportViewModel', () => {
 
     expect(failing.store.getState().error).toBe('sem cobertura');
     expect(vm.store.getState().error).toBeNull();
+  });
+
+  it('exporta a escala salva, incluindo as trocas manuais', async () => {
+    const { vm, saver, schedule } = setup([{ registration: '1', name: 'Ana', unit: Unit.Mooca }]);
+    await schedule.generate(5);
+    await schedule.moveRotatingRest(0, '1', WeekDay.Friday);
+    await vm.loadWeeks();
+
+    await vm.exportCsv(0);
+
+    expect(saver.saved[0]?.content).toContain(
+      '1,Ana,,Trabalho,Trabalho,Trabalho,Trabalho,Folga,Trabalho,Folga,2',
+    );
+  });
+
+  it('não gera nem altera a escala só por ler as semanas para exportar', async () => {
+    const { vm } = setup([{ registration: '1', name: 'Ana', unit: Unit.Mooca }]);
+
+    await vm.loadWeeks();
+
+    expect(vm.store.getState().weeks).toEqual([]);
   });
 });

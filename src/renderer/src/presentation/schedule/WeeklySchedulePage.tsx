@@ -4,6 +4,11 @@ import {
   Alert,
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Stack,
   Tab,
   Tabs,
@@ -17,9 +22,16 @@ import { LocalStorageEmployeeDirectory } from '@presentation/employees/LocalStor
 import { LocalStorageCoverageSettings } from '@presentation/rules/LocalStorageCoverageSettings';
 import { sessionDiagnostics } from '@presentation/diagnostics/SessionDiagnostics';
 import { LocalScheduleGateway } from './LocalScheduleGateway';
-import { HORIZON_OPTIONS, WeeklyScheduleViewModel } from './WeeklyScheduleViewModel';
+import { LocalStorageScheduleStore } from './LocalStorageScheduleStore';
+import { confirmationCopy } from './confirmationCopy';
+import {
+  HORIZON_OPTIONS,
+  WeeklyScheduleViewModel,
+  type PendingChange,
+} from './WeeklyScheduleViewModel';
+import type { ScheduleWeekView } from './scheduleGateway';
 import { PeriodOverview } from './PeriodOverview';
-import { weekRangeLabel, weekTabLabel } from './weekLabels';
+import { savedAtLabel, weekRangeLabel, weekTabLabel } from './weekLabels';
 import { assignmentLegend, assignmentMeta } from './scheduleLabels';
 import { WeekGrid } from './WeekGrid';
 
@@ -32,18 +44,22 @@ export function WeeklySchedulePage(): JSX.Element {
         new LocalScheduleGateway(
           new LocalStorageEmployeeDirectory(window.localStorage),
           new LocalStorageCoverageSettings(window.localStorage),
+          new LocalStorageScheduleStore(window.localStorage),
         ),
         sessionDiagnostics,
       ),
     [],
   );
   useEffect(() => {
-    void viewModel.generate();
+    void viewModel.load();
   }, [viewModel]);
 
   const weeks = useStore(viewModel.store, (state) => state.weeks);
   const selectedIndex = useStore(viewModel.store, (state) => state.selectedIndex);
   const horizonWeeks = useStore(viewModel.store, (state) => state.horizonWeeks);
+  const savedAt = useStore(viewModel.store, (state) => state.savedAt);
+  const outdated = useStore(viewModel.store, (state) => state.outdated);
+  const pending = useStore(viewModel.store, (state) => state.pending);
   const selected = weeks[selectedIndex];
   const rows = selected?.rows ?? [];
   const violations = selected?.violations ?? [];
@@ -58,8 +74,8 @@ export function WeeklySchedulePage(): JSX.Element {
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Semana atual e semanas futuras, geradas a partir do cadastro deste computador. Na Mooca,
-          clique num dia de trabalho para levar a folga rotativa para lá: as semanas seguintes são
-          refeitas para manter a rotação justa. Gerar novamente desfaz as trocas.
+          clique num dia de trabalho para levar a folga rotativa para lá. A escala fica salva neste
+          computador e toda alteração pede a sua confirmação.
         </Typography>
       </Box>
 
@@ -95,7 +111,7 @@ export function WeeklySchedulePage(): JSX.Element {
               <Button
                 variant="contained"
                 disabled={loading}
-                onClick={() => void viewModel.generate()}
+                onClick={() => void viewModel.requestRegenerate()}
               >
                 Gerar novamente
               </Button>
@@ -144,6 +160,17 @@ export function WeeklySchedulePage(): JSX.Element {
           })}
         </Stack>
 
+        {savedAt !== null && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+            {`Escala salva em ${savedAtLabel(savedAt)}.`}
+          </Typography>
+        )}
+        {outdated && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            O cadastro de colaboradores mudou depois que esta escala foi salva. Use &ldquo;Gerar
+            novamente&rdquo; para incluir as mudanças.
+          </Alert>
+        )}
         {error !== null && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
@@ -155,17 +182,24 @@ export function WeeklySchedulePage(): JSX.Element {
           </Alert>
         )}
 
-        {rows.length === 0 && !loading ? (
+        {rows.length === 0 && !loading && error === null ? (
           <Typography variant="body2" color="text.secondary">
             Nenhum colaborador cadastrado. Inclua a equipe em Colaboradores para gerar a escala.
           </Typography>
-        ) : (
+        ) : rows.length === 0 ? null : (
           <WeekGrid
             rows={rows}
-            onMoveRest={(registration, day) => void viewModel.moveRotatingRest(registration, day)}
+            onMoveRest={(registration, day) => viewModel.requestMove(registration, day)}
           />
         )}
       </SurfaceCard>
+
+      <ConfirmChange
+        change={pending}
+        weeks={weeks}
+        onConfirm={() => void viewModel.confirm()}
+        onCancel={() => viewModel.cancel()}
+      />
 
       {weeks.length > 0 && rows.length > 0 && (
         <SurfaceCard>
@@ -178,5 +212,38 @@ export function WeeklySchedulePage(): JSX.Element {
         </SurfaceCard>
       )}
     </Stack>
+  );
+}
+
+interface ConfirmChangeProps {
+  readonly change: PendingChange | null;
+  readonly weeks: readonly ScheduleWeekView[];
+  readonly onConfirm: () => void;
+  readonly onCancel: () => void;
+}
+
+/** Aviso antes de alterar a escala. O foco inicial fica em "Cancelar", a opção segura. */
+function ConfirmChange({ change, weeks, onConfirm, onCancel }: ConfirmChangeProps): JSX.Element {
+  const copy = change === null ? null : confirmationCopy(change, weeks);
+  return (
+    <Dialog
+      open={copy !== null}
+      onClose={onCancel}
+      aria-labelledby="confirm-change-title"
+      aria-describedby="confirm-change-body"
+    >
+      <DialogTitle id="confirm-change-title">{copy?.title}</DialogTitle>
+      <DialogContent>
+        <DialogContentText id="confirm-change-body">{copy?.body}</DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button autoFocus onClick={onCancel}>
+          Cancelar
+        </Button>
+        <Button variant="contained" onClick={onConfirm}>
+          {copy?.confirmLabel}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }

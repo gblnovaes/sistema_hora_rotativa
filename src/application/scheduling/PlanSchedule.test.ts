@@ -88,4 +88,29 @@ describe('PlanSchedule', () => {
       service.swap({ plan, weekIndex: 7, registration: '1', day: WeekDay.Friday }),
     ).toThrow(/não existe/);
   });
+
+  it('estende um plano mantendo as semanas existentes e a rotação justa', () => {
+    const service = planner();
+    const plan = service.generate({ employees: team, weekCount: 3 });
+
+    const extended = service.extendPlan({ plan, weekCount: 6 });
+
+    expect(extended).toHaveLength(6);
+    expect(extended.slice(0, 3)).toEqual(plan);
+    expect(restOf(extended[3] as PlannedWeek, '1')).not.toBe(
+      restOf(extended[2] as PlannedWeek, '1'),
+    );
+    expect(extended.every((week) => week.violations.length === 0)).toBe(true);
+  });
+
+  it('não muda nada ao estender para um tamanho que o plano já tem', () => {
+    const service = planner();
+    const plan = service.generate({ employees: team, weekCount: 4 });
+
+    expect(service.extendPlan({ plan, weekCount: 2 })).toEqual(plan);
+  });
+
+  it('recusa estender um plano vazio', () => {
+    expect(() => planner().extendPlan({ plan: [], weekCount: 3 })).toThrow(/Não há plano/);
+  });
 });
