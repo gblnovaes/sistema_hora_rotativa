@@ -27,6 +27,7 @@ describe('SessionDiagnostics', () => {
 
     expect(session.events()).toEqual([
       {
+        id: 0,
         at: '2026-11-09T12:00:00.000Z',
         level: 'info',
         message: 'escala gerada',

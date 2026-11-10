@@ -116,7 +116,7 @@ export function DiagnosticsPage(): JSX.Element {
         ) : (
           <Stack spacing={1}>
             {events.map((event) => (
-              <Box key={`${event.at}-${event.message}`}>
+              <Box key={event.id}>
                 <Typography variant="body2">
                   <strong>{event.level}</strong> · {event.at} · {event.message}
                 </Typography>

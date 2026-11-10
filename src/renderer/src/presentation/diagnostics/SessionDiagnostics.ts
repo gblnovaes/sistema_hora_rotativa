@@ -47,6 +47,7 @@ async function readAppInfo(): Promise<AppIdentity> {
  */
 export class SessionDiagnostics implements DiagnosticsSink, DiagnosticsSource {
   private readonly buffer: DiagnosticEvent[] = [];
+  private nextId = 0;
   private readonly counters = new Map<string, number>();
   private readonly timings = new Map<string, number[]>();
 
@@ -57,13 +58,15 @@ export class SessionDiagnostics implements DiagnosticsSink, DiagnosticsSource {
     private readonly limit = MAX_EVENTS,
   ) {}
 
-  record(event: Omit<DiagnosticEvent, 'at'>): void {
+  record(event: Omit<DiagnosticEvent, 'id' | 'at'>): void {
     const context = redact(event.context);
     const entry: DiagnosticEvent = {
+      id: this.nextId,
       at: this.clock().toISOString(),
       level: event.level,
       message: event.message,
     };
+    this.nextId += 1;
     this.buffer.push(context === undefined ? entry : { ...entry, context });
     if (this.buffer.length > this.limit) {
       this.buffer.shift();

@@ -9,8 +9,8 @@ import type {
 import { DiagnosticsViewModel } from './DiagnosticsViewModel';
 
 const events: readonly DiagnosticEvent[] = [
-  { at: '2026-11-09T12:00:00.000Z', level: 'info', message: 'escala gerada' },
-  { at: '2026-11-09T12:01:00.000Z', level: 'error', message: 'falha ao gerar escala' },
+  { id: 0, at: '2026-11-09T12:00:00.000Z', level: 'info', message: 'escala gerada' },
+  { id: 1, at: '2026-11-09T12:01:00.000Z', level: 'error', message: 'falha ao gerar escala' },
 ];
 
 class FakeSource implements DiagnosticsSource {

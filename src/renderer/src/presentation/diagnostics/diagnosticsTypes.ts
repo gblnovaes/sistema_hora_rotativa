@@ -1,6 +1,7 @@
 export type DiagnosticLevel = 'info' | 'warn' | 'error';
 
 export interface DiagnosticEvent {
+  readonly id: number;
   readonly at: string;
   readonly level: DiagnosticLevel;
   readonly message: string;
@@ -28,7 +29,7 @@ export interface DiagnosticPackage {
 
 /** Quem registra eventos e métricas da sessão do renderer. */
 export interface DiagnosticsSink {
-  record(event: Omit<DiagnosticEvent, 'at'>): void;
+  record(event: Omit<DiagnosticEvent, 'id' | 'at'>): void;
   increment(name: string, value?: number): void;
   timing(name: string, milliseconds: number): void;
 }
