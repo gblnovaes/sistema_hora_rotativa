@@ -9,7 +9,8 @@ e permite trocar a folga rotativa de um colaborador, revalidando a escala.
   regras R1–R4. É assíncrona para poder ser trocada por IPC sem mudar o ViewModel.
 - `LocalScheduleGateway` (adaptador) — lê o `EmployeeDirectory` local, roda o
   `FairRotationScheduler` com histórico vazio e valida com `defaultScheduleRules()`.
-  Sem cobertura mínima: essa política ainda não tem tela.
+  Se receber um `CoverageSettingsStore`, aplica o piso salvo na tela de regras.
+  A troca manual ainda não reavalia esse piso.
 - `WeeklyScheduleViewModel` — dispara a geração e expõe `rows`, `violations`, `loading` e
   `error`. Uma falha preserva a escala anterior.
 - `SwapRotatingRest` (caso de uso) — move a folga rotativa para outro dia candidato,

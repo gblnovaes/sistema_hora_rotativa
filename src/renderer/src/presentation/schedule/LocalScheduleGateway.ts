@@ -1,4 +1,5 @@
 import { SwapRotatingRest } from '@application/scheduling/SwapRotatingRest';
+import { CoveragePolicy } from '@domain/scheduling/CoveragePolicy';
 import { Employee } from '@domain/scheduling/Employee';
 import type { EmployeeWeek } from '@domain/scheduling/EmployeeWeek';
 import { FairRotationScheduler } from '@domain/scheduling/FairRotationScheduler';
@@ -6,14 +7,15 @@ import { RotationHistory } from '@domain/scheduling/RotationHistory';
 import { defaultScheduleRules, ScheduleValidator } from '@domain/scheduling/ScheduleValidator';
 import { WEEK_DAYS, type WeekDay } from '@domain/scheduling/WeekDay';
 import type { EmployeeDirectory } from '@presentation/employees/employeeDirectory';
+import type { CoverageSettingsStore } from '@presentation/rules/coverageSettings';
 import type { GeneratedSchedule, ScheduleGateway, ScheduleRow } from './scheduleGateway';
 
 /**
  * Gera a escala da primeira semana a partir do cadastro local.
  *
  * O histórico começa vazio: ainda não há semanas anteriores neste adaptador.
- * A cobertura mínima fica de fora até a tela de regras existir; sem ela o
- * escalonador só aplica justiça e as folgas fixas da unidade.
+ * Quando há um `CoverageSettingsStore`, o piso salvo na tela de regras vira
+ * restrição rígida do escalonador. Sem a porta, nada restringe a cobertura.
  */
 export class LocalScheduleGateway implements ScheduleGateway {
   private readonly scheduler = new FairRotationScheduler();
@@ -21,12 +23,16 @@ export class LocalScheduleGateway implements ScheduleGateway {
   private readonly swap = new SwapRotatingRest({ validator: this.validator });
   private weeks: readonly EmployeeWeek[] | null = null;
 
-  constructor(private readonly directory: EmployeeDirectory) {}
+  constructor(
+    private readonly directory: EmployeeDirectory,
+    private readonly coverageSettings?: CoverageSettingsStore,
+  ) {}
 
   async generate(): Promise<GeneratedSchedule> {
     const records = await this.directory.list();
     const employees = records.map((record) => Employee.create(record));
-    const generated = this.scheduler.generate(employees, RotationHistory.empty());
+    const coverage = await this.coverage();
+    const generated = this.scheduler.generate(employees, RotationHistory.empty(), { coverage });
     this.weeks = generated.weeks;
     return this.present(generated.weeks);
   }
@@ -38,6 +44,14 @@ export class LocalScheduleGateway implements ScheduleGateway {
     const result = this.swap.execute({ weeks: this.weeks, registration, day });
     this.weeks = result.weeks;
     return Promise.resolve(this.present(result.weeks, result.violations));
+  }
+
+  private async coverage(): Promise<CoveragePolicy | undefined> {
+    if (this.coverageSettings === undefined) {
+      return undefined;
+    }
+    const settings = await this.coverageSettings.load();
+    return CoveragePolicy.perUnit({ ...settings.minimumByUnit });
   }
 
   private present(

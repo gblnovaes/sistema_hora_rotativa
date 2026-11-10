@@ -3,7 +3,18 @@ import { DayAssignment } from '@domain/scheduling/DayAssignment';
 import { Unit } from '@domain/scheduling/Unit';
 import { WeekDay } from '@domain/scheduling/WeekDay';
 import type { EmployeeDirectory, EmployeeRecord } from '@presentation/employees/employeeDirectory';
+import type { CoverageSettings, CoverageSettingsStore } from '@presentation/rules/coverageSettings';
 import { LocalScheduleGateway } from './LocalScheduleGateway';
+
+class FixedCoverage implements CoverageSettingsStore {
+  constructor(private readonly settings: CoverageSettings) {}
+  load(): Promise<CoverageSettings> {
+    return Promise.resolve(this.settings);
+  }
+  save(): Promise<void> {
+    return Promise.resolve();
+  }
+}
 
 class MemoryDirectory implements EmployeeDirectory {
   constructor(private readonly records: readonly EmployeeRecord[]) {}
@@ -58,6 +69,38 @@ describe('LocalScheduleGateway', () => {
       1,
     );
     expect(cell(mooca, WeekDay.Monday)).not.toBe(DayAssignment.FixedRest);
+  });
+
+  it('aplica o piso de cobertura: duas pessoas na Mooca não folgam no mesmo dia', async () => {
+    const gateway = new LocalScheduleGateway(
+      new MemoryDirectory([
+        { registration: '1', name: 'Ana', unit: Unit.Mooca },
+        { registration: '2', name: 'Bruno', unit: Unit.Mooca },
+      ]),
+      new FixedCoverage({
+        minimumByUnit: { [Unit.Administrativo]: 1, [Unit.Mooca]: 1 },
+      }),
+    );
+
+    const schedule = await gateway.generate();
+    const rests = schedule.rows.map(
+      (row) => row.days.find((day) => day.assignment === DayAssignment.RotatingRest)?.day,
+    );
+
+    expect(schedule.violations).toEqual([]);
+    expect(rests[0]).toBeDefined();
+    expect(rests[0]).not.toBe(rests[1]);
+  });
+
+  it('recusa gerar quando o piso torna a folga rotativa impossível', async () => {
+    const gateway = new LocalScheduleGateway(
+      new MemoryDirectory([{ registration: '1', name: 'Ana', unit: Unit.Mooca }]),
+      new FixedCoverage({
+        minimumByUnit: { [Unit.Administrativo]: 1, [Unit.Mooca]: 1 },
+      }),
+    );
+
+    await expect(gateway.generate()).rejects.toThrow(/cobertura mínima/);
   });
 
   it('devolve uma escala vazia quando não há colaboradores', async () => {
