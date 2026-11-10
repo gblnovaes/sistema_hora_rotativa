@@ -20,6 +20,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { Unit, policyOf } from '@domain/scheduling/Unit';
 import { SurfaceCard } from '@presentation/components/SurfaceCard';
 import { SectionHeader } from '@presentation/components/SectionHeader';
+import { sessionDiagnostics } from '@presentation/diagnostics/SessionDiagnostics';
 import { EmployeesViewModel } from './EmployeesViewModel';
 import { LocalStorageEmployeeDirectory } from './LocalStorageEmployeeDirectory';
 import type { EmployeeRecord } from './employeeDirectory';
@@ -39,7 +40,11 @@ const EMPTY: EmployeeRecord = { registration: '', name: '', unit: Unit.Mooca };
 
 export function EmployeesPage(): JSX.Element {
   const viewModel = useMemo(
-    () => new EmployeesViewModel(new LocalStorageEmployeeDirectory(window.localStorage)),
+    () =>
+      new EmployeesViewModel(
+        new LocalStorageEmployeeDirectory(window.localStorage),
+        sessionDiagnostics,
+      ),
     [],
   );
   useEffect(() => {

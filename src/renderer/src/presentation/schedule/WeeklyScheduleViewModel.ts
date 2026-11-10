@@ -1,5 +1,6 @@
 import type { WeekDay } from '@domain/scheduling/WeekDay';
 import { createStore, type StoreApi } from 'zustand/vanilla';
+import type { DiagnosticsSink } from '@presentation/diagnostics/diagnosticsTypes';
 import type { GeneratedSchedule, ScheduleGateway, ScheduleRow } from './scheduleGateway';
 
 export interface WeeklyScheduleState {
@@ -16,7 +17,11 @@ export interface WeeklyScheduleState {
 export class WeeklyScheduleViewModel {
   readonly store: StoreApi<WeeklyScheduleState>;
 
-  constructor(private readonly gateway: ScheduleGateway) {
+  constructor(
+    private readonly gateway: ScheduleGateway,
+    private readonly diagnostics?: DiagnosticsSink,
+    private readonly now: () => number = Date.now,
+  ) {
     this.store = createStore<WeeklyScheduleState>()(() => ({
       rows: [],
       violations: [],
@@ -27,16 +32,27 @@ export class WeeklyScheduleViewModel {
 
   async generate(): Promise<void> {
     this.store.setState({ loading: true, error: null });
+    const start = this.now();
     let schedule: GeneratedSchedule;
     try {
       schedule = await this.gateway.generate();
     } catch (error) {
+      this.diagnostics?.increment('schedule.errors');
+      this.diagnostics?.timing('schedule.generate', this.now() - start);
+      this.diagnostics?.record({ level: 'error', message: 'falha ao gerar escala' });
       this.store.setState({
         loading: false,
         error: error instanceof Error ? error.message : String(error),
       });
       return;
     }
+    this.diagnostics?.increment('schedule.generate');
+    this.diagnostics?.timing('schedule.generate', this.now() - start);
+    this.diagnostics?.record({
+      level: 'info',
+      message: 'escala gerada',
+      context: { rows: schedule.rows.length, violations: schedule.violations.length },
+    });
     this.store.setState({
       rows: schedule.rows,
       violations: schedule.violations,
@@ -51,11 +67,21 @@ export class WeeklyScheduleViewModel {
     try {
       schedule = await this.gateway.moveRotatingRest(registration, day);
     } catch (error) {
+      this.diagnostics?.record({
+        level: 'warn',
+        message: 'troca de folga recusada',
+        context: { registration },
+      });
       this.store.setState({
         error: error instanceof Error ? error.message : String(error),
       });
       return;
     }
+    this.diagnostics?.record({
+      level: 'info',
+      message: 'folga rotativa movida',
+      context: { registration },
+    });
     this.store.setState({
       rows: schedule.rows,
       violations: schedule.violations,

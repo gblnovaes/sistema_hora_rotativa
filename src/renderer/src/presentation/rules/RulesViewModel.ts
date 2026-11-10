@@ -1,6 +1,7 @@
 import { CoveragePolicy } from '@domain/scheduling/CoveragePolicy';
 import { Unit } from '@domain/scheduling/Unit';
 import { createStore, type StoreApi } from 'zustand/vanilla';
+import type { DiagnosticsSink } from '@presentation/diagnostics/diagnosticsTypes';
 import { adoptedShifts, type ShiftFact } from './adoptedShifts';
 import {
   DEFAULT_COVERAGE_SETTINGS,
@@ -25,7 +26,10 @@ export interface RulesState {
 export class RulesViewModel {
   readonly store: StoreApi<RulesState>;
 
-  constructor(private readonly settings: CoverageSettingsStore) {
+  constructor(
+    private readonly settings: CoverageSettingsStore,
+    private readonly diagnostics?: DiagnosticsSink,
+  ) {
     this.store = createStore<RulesState>()(() => ({
       minimumByUnit: DEFAULT_COVERAGE_SETTINGS.minimumByUnit,
       shifts: adoptedShifts(),
@@ -55,6 +59,7 @@ export class RulesViewModel {
         }
       }
     } catch (error) {
+      this.diagnostics?.record({ level: 'warn', message: 'piso de cobertura recusado' });
       this.store.setState({
         error: error instanceof Error ? error.message : String(error),
         saved: false,
@@ -63,6 +68,15 @@ export class RulesViewModel {
     }
 
     await this.settings.save(settings);
+    this.diagnostics?.increment('rules.saved');
+    this.diagnostics?.record({
+      level: 'info',
+      message: 'piso de cobertura salvo',
+      context: {
+        administrativo: settings.minimumByUnit[Unit.Administrativo],
+        mooca: settings.minimumByUnit[Unit.Mooca],
+      },
+    });
     this.store.setState({
       minimumByUnit: settings.minimumByUnit,
       error: null,

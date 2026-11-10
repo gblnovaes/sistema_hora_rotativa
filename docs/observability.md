@@ -40,7 +40,8 @@ ao SQLite entram quando o caso de uso e a persistência existirem (Fases 7–8).
 
 ## O que falta (fases seguintes)
 
-- Instrumentar o caso de uso de geração de escala (Fase 7) com `measure` e `correlationId`.
+- Instrumentar o caso de uso de geração de escala no main com `measure` e `correlationId`.
 - Handlers de erro do processo main (`uncaughtException`, `unhandledRejection`,
   `render-process-gone`) chamando `reportError`, na composição do main.
-- Tela de Diagnóstico lendo o `snapshot()` das métricas e os logs (Fase 13).
+- A tela de Diagnóstico (Fase 13) já lê a sessão do renderer. Ainda não consome o
+  `snapshot()` do main nem os arquivos do pino — isso entra por IPC.

@@ -1,5 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { Employee } from '@domain/scheduling/Employee';
+import type { DiagnosticsSink } from '@presentation/diagnostics/diagnosticsTypes';
 import type { EmployeeDirectory, EmployeeRecord } from './employeeDirectory';
 
 export interface EmployeesState {
@@ -16,7 +17,10 @@ export interface EmployeesState {
 export class EmployeesViewModel {
   readonly store: StoreApi<EmployeesState>;
 
-  constructor(private readonly directory: EmployeeDirectory) {
+  constructor(
+    private readonly directory: EmployeeDirectory,
+    private readonly diagnostics?: DiagnosticsSink,
+  ) {
     this.store = createStore<EmployeesState>()(() => ({
       employees: [],
       loading: false,
@@ -35,15 +39,28 @@ export class EmployeesViewModel {
     try {
       normalized = this.normalize(record);
     } catch (error) {
+      this.diagnostics?.record({ level: 'warn', message: 'cadastro recusado' });
       this.store.setState({ error: error instanceof Error ? error.message : String(error) });
       return;
     }
     await this.directory.save(normalized);
+    this.diagnostics?.increment('employees.saved');
+    this.diagnostics?.record({
+      level: 'info',
+      message: 'colaborador salvo',
+      context: { registration: normalized.registration },
+    });
     await this.load();
   }
 
   async remove(registration: string): Promise<void> {
     await this.directory.remove(registration);
+    this.diagnostics?.increment('employees.removed');
+    this.diagnostics?.record({
+      level: 'info',
+      message: 'colaborador removido',
+      context: { registration },
+    });
     await this.load();
   }
 

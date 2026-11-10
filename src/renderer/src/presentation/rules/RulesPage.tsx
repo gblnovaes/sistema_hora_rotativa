@@ -5,6 +5,7 @@ import { Unit } from '@domain/scheduling/Unit';
 import { SectionHeader } from '@presentation/components/SectionHeader';
 import { SurfaceCard } from '@presentation/components/SurfaceCard';
 import { UNIT_LABEL } from '@presentation/schedule/scheduleLabels';
+import { sessionDiagnostics } from '@presentation/diagnostics/SessionDiagnostics';
 import { LocalStorageCoverageSettings } from './LocalStorageCoverageSettings';
 import { RulesViewModel } from './RulesViewModel';
 
@@ -12,7 +13,8 @@ const UNITS = [Unit.Administrativo, Unit.Mooca] as const;
 
 export function RulesPage(): JSX.Element {
   const viewModel = useMemo(
-    () => new RulesViewModel(new LocalStorageCoverageSettings(window.localStorage)),
+    () =>
+      new RulesViewModel(new LocalStorageCoverageSettings(window.localStorage), sessionDiagnostics),
     [],
   );
   useEffect(() => {

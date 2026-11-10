@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CssBaseline, Stack, ThemeProvider, Typography } from '@mui/material';
+import { CssBaseline, ThemeProvider } from '@mui/material';
 import { buildTheme } from './theme/theme';
 import { AppShell, type PageKey } from './layout/AppShell';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
@@ -7,19 +7,7 @@ import { EmployeesPage } from './employees/EmployeesPage';
 import { WeeklySchedulePage } from './schedule/WeeklySchedulePage';
 import { RulesPage } from './rules/RulesPage';
 import { BalancePage } from './balance/BalancePage';
-
-function PlaceholderPage({ title }: { readonly title: string }): JSX.Element {
-  return (
-    <Stack spacing={1}>
-      <Typography variant="h2" component="h2">
-        {title}
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
-        Em construção.
-      </Typography>
-    </Stack>
-  );
-}
+import { DiagnosticsPage } from './diagnostics/DiagnosticsPage';
 
 const PAGES: Record<PageKey, JSX.Element> = {
   dashboard: <DashboardPage />,
@@ -27,7 +15,7 @@ const PAGES: Record<PageKey, JSX.Element> = {
   schedule: <WeeklySchedulePage />,
   rules: <RulesPage />,
   balance: <BalancePage />,
-  diagnostics: <PlaceholderPage title="Diagnóstico" />,
+  diagnostics: <DiagnosticsPage />,
 };
 
 export function App(): JSX.Element {

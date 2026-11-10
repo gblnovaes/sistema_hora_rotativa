@@ -5,6 +5,7 @@ import { SectionHeader } from '@presentation/components/SectionHeader';
 import { SurfaceCard } from '@presentation/components/SurfaceCard';
 import { LocalStorageEmployeeDirectory } from '@presentation/employees/LocalStorageEmployeeDirectory';
 import { LocalStorageCoverageSettings } from '@presentation/rules/LocalStorageCoverageSettings';
+import { sessionDiagnostics } from '@presentation/diagnostics/SessionDiagnostics';
 import { LocalScheduleGateway } from './LocalScheduleGateway';
 import { WeeklyScheduleViewModel } from './WeeklyScheduleViewModel';
 import { assignmentLegend, assignmentMeta } from './scheduleLabels';
@@ -20,6 +21,7 @@ export function WeeklySchedulePage(): JSX.Element {
           new LocalStorageEmployeeDirectory(window.localStorage),
           new LocalStorageCoverageSettings(window.localStorage),
         ),
+        sessionDiagnostics,
       ),
     [],
   );
