@@ -7,6 +7,7 @@ import { EmployeesPage } from './employees/EmployeesPage';
 import { WeeklySchedulePage } from './schedule/WeeklySchedulePage';
 import { RulesPage } from './rules/RulesPage';
 import { BalancePage } from './balance/BalancePage';
+import { ImportExportPage } from './spreadsheet/ImportExportPage';
 import { DiagnosticsPage } from './diagnostics/DiagnosticsPage';
 
 const PAGES: Record<PageKey, JSX.Element> = {
@@ -15,6 +16,7 @@ const PAGES: Record<PageKey, JSX.Element> = {
   schedule: <WeeklySchedulePage />,
   rules: <RulesPage />,
   balance: <BalancePage />,
+  spreadsheet: <ImportExportPage />,
   diagnostics: <DiagnosticsPage />,
 };
 
