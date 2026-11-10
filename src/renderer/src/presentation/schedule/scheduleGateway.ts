@@ -16,10 +16,19 @@ export interface ScheduleRow {
   readonly days: readonly ScheduleCell[];
 }
 
-/** Escala gerada para a semana corrente, mais as violações encontradas. */
-export interface GeneratedSchedule {
+/** Uma semana do período: a grade e as violações encontradas nela. */
+export interface ScheduleWeekView {
+  /** Posição no período; 0 é a semana atual. */
+  readonly index: number;
+  /** Segunda-feira da semana, `AAAA-MM-DD`. */
+  readonly startDate: string;
   readonly rows: readonly ScheduleRow[];
   readonly violations: readonly string[];
+}
+
+/** Escala do período planejado, da semana atual em diante. */
+export interface GeneratedSchedule {
+  readonly weeks: readonly ScheduleWeekView[];
 }
 
 /**
@@ -29,7 +38,15 @@ export interface GeneratedSchedule {
  * roda o escalonador no renderer; amanhã pode chamar o processo main via IPC.
  */
 export interface ScheduleGateway {
-  generate(): Promise<GeneratedSchedule>;
-  /** Move a folga rotativa do colaborador para `day` e revalida a escala atual. */
-  moveRotatingRest(registration: string, day: WeekDay): Promise<GeneratedSchedule>;
+  /** Gera `weekCount` semanas seguidas, começando na semana atual. */
+  generate(weekCount: number): Promise<GeneratedSchedule>;
+  /**
+   * Move a folga rotativa do colaborador para `day` na semana `weekIndex`.
+   * As semanas seguintes são refeitas; as anteriores ficam como estavam.
+   */
+  moveRotatingRest(
+    weekIndex: number,
+    registration: string,
+    day: WeekDay,
+  ): Promise<GeneratedSchedule>;
 }

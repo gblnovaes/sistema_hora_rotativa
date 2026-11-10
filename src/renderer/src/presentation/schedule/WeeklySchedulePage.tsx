@@ -1,13 +1,25 @@
 import { useEffect, useMemo } from 'react';
 import { useStore } from 'zustand';
-import { Alert, Box, Button, Stack, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  Stack,
+  Tab,
+  Tabs,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from '@mui/material';
 import { SectionHeader } from '@presentation/components/SectionHeader';
 import { SurfaceCard } from '@presentation/components/SurfaceCard';
 import { LocalStorageEmployeeDirectory } from '@presentation/employees/LocalStorageEmployeeDirectory';
 import { LocalStorageCoverageSettings } from '@presentation/rules/LocalStorageCoverageSettings';
 import { sessionDiagnostics } from '@presentation/diagnostics/SessionDiagnostics';
 import { LocalScheduleGateway } from './LocalScheduleGateway';
-import { WeeklyScheduleViewModel } from './WeeklyScheduleViewModel';
+import { HORIZON_OPTIONS, WeeklyScheduleViewModel } from './WeeklyScheduleViewModel';
+import { PeriodOverview } from './PeriodOverview';
+import { weekRangeLabel, weekTabLabel } from './weekLabels';
 import { assignmentLegend, assignmentMeta } from './scheduleLabels';
 import { WeekGrid } from './WeekGrid';
 
@@ -29,8 +41,12 @@ export function WeeklySchedulePage(): JSX.Element {
     void viewModel.generate();
   }, [viewModel]);
 
-  const rows = useStore(viewModel.store, (state) => state.rows);
-  const violations = useStore(viewModel.store, (state) => state.violations);
+  const weeks = useStore(viewModel.store, (state) => state.weeks);
+  const selectedIndex = useStore(viewModel.store, (state) => state.selectedIndex);
+  const horizonWeeks = useStore(viewModel.store, (state) => state.horizonWeeks);
+  const selected = weeks[selectedIndex];
+  const rows = selected?.rows ?? [];
+  const violations = selected?.violations ?? [];
   const loading = useStore(viewModel.store, (state) => state.loading);
   const error = useStore(viewModel.store, (state) => state.error);
 
@@ -41,24 +57,70 @@ export function WeeklySchedulePage(): JSX.Element {
           Escala semanal
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Semana gerada a partir do cadastro deste computador. Na Mooca, clique num dia de trabalho
-          para levar a folga rotativa para lá. Gerar novamente desfaz as trocas.
+          Semana atual e semanas futuras, geradas a partir do cadastro deste computador. Na Mooca,
+          clique num dia de trabalho para levar a folga rotativa para lá: as semanas seguintes são
+          refeitas para manter a rotação justa. Gerar novamente desfaz as trocas.
         </Typography>
       </Box>
 
       <SurfaceCard>
         <SectionHeader
-          title={loading ? 'Gerando escala…' : `Semana (${rows.length})`}
+          title={
+            loading
+              ? 'Gerando escala…'
+              : selected === undefined
+                ? 'Semana'
+                : `Semana ${weekRangeLabel(selected.startDate)} (${rows.length})`
+          }
           action={
-            <Button
-              variant="contained"
-              disabled={loading}
-              onClick={() => void viewModel.generate()}
-            >
-              Gerar novamente
-            </Button>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={horizonWeeks}
+                disabled={loading}
+                aria-label="Período planejado"
+                onChange={(_, weeks: number | null) => {
+                  if (weeks !== null) {
+                    void viewModel.setHorizon(weeks);
+                  }
+                }}
+              >
+                {HORIZON_OPTIONS.map((option) => (
+                  <ToggleButton key={option.weeks} value={option.weeks}>
+                    {option.label}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+              <Button
+                variant="contained"
+                disabled={loading}
+                onClick={() => void viewModel.generate()}
+              >
+                Gerar novamente
+              </Button>
+            </Stack>
           }
         />
+
+        {weeks.length > 0 && (
+          <Tabs
+            value={selectedIndex}
+            onChange={(_, index: number) => viewModel.selectWeek(index)}
+            variant="scrollable"
+            scrollButtons="auto"
+            aria-label="Semanas do período"
+            sx={{ mb: 2 }}
+          >
+            {weeks.map((week) => (
+              <Tab
+                key={week.index}
+                value={week.index}
+                label={weekTabLabel(week.index, week.startDate)}
+              />
+            ))}
+          </Tabs>
+        )}
 
         <Stack direction="row" spacing={1} sx={{ mb: 2 }} aria-label="Legenda da escala">
           {LEGEND.map((item) => {
@@ -104,6 +166,17 @@ export function WeeklySchedulePage(): JSX.Element {
           />
         )}
       </SurfaceCard>
+
+      {weeks.length > 0 && rows.length > 0 && (
+        <SurfaceCard>
+          <SectionHeader title="Visão do período" />
+          <PeriodOverview
+            weeks={weeks}
+            selectedIndex={selectedIndex}
+            onSelectWeek={(index) => viewModel.selectWeek(index)}
+          />
+        </SurfaceCard>
+      )}
     </Stack>
   );
 }

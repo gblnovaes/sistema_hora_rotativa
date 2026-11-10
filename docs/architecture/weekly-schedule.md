@@ -1,16 +1,30 @@
 # Escala semanal (Fase 10)
 
-A tela **Escala semanal** mostra a grade colaboradores × dias da primeira semana
-e permite trocar a folga rotativa de um colaborador, revalidando a escala.
+A tela **Escala semanal** mostra a semana atual e as semanas futuras (padrão: 5 semanas,
+o que cobre ao menos 1 mês a partir de hoje; também há 2 e 3 meses). Cada semana é uma
+aba com a grade colaboradores × dias. Abaixo, a **Visão do período** resume a folga
+rotativa de cada colaborador em cada semana. Dá para trocar a folga rotativa de um
+colaborador em qualquer semana, revalidando a escala.
+
+## Período e rotação contínua
+
+- `PlanSchedule` (caso de uso) encadeia o `FairRotationScheduler`: cada semana usa o
+  histórico das anteriores, então a rotação continua justa e não repete o dia da semana
+  anterior.
+- A semana 0 começa na segunda-feira da semana de hoje (`CalendarWeek.mondayOf`).
+- **Trocar uma folga na semana N refaz as semanas N+1 em diante**, porque o histórico muda.
+  As semanas anteriores ficam como estavam. Trocas manuais feitas depois da semana N são
+  descartadas por esse motivo.
+- O piso de cobertura salvo em Regras e cobertura vale para todas as semanas, inclusive
+  depois de uma troca.
 
 ## Peças (MVVM)
 
-- `ScheduleGateway` (porta) — `generate()`. Devolve as linhas da grade e as violações das
+- `ScheduleGateway` (porta) — `generate(weekCount)` e `moveRotatingRest(weekIndex, …)`. Devolve as linhas da grade e as violações das
   regras R1–R4. É assíncrona para poder ser trocada por IPC sem mudar o ViewModel.
 - `LocalScheduleGateway` (adaptador) — lê o `EmployeeDirectory` local, roda o
-  `FairRotationScheduler` com histórico vazio e valida com `defaultScheduleRules()`.
+  `PlanSchedule` com histórico vazio e valida com `defaultScheduleRules()`.
   Se receber um `CoverageSettingsStore`, aplica o piso salvo na tela de regras.
-  A troca manual ainda não reavalia esse piso.
 - `WeeklyScheduleViewModel` — dispara a geração e expõe `rows`, `violations`, `loading` e
   `error`. Uma falha preserva a escala anterior.
 - `SwapRotatingRest` (caso de uso) — move a folga rotativa para outro dia candidato,
