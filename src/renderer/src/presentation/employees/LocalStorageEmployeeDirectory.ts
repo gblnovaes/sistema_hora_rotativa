@@ -23,7 +23,12 @@ function toRecord(value: unknown): EmployeeRecord | null {
   ) {
     return null;
   }
-  return { registration: raw['registration'], name: raw['name'], unit: raw['unit'] as Unit };
+  const record = {
+    registration: raw['registration'],
+    name: raw['name'],
+    unit: raw['unit'] as Unit,
+  };
+  return typeof raw['shift'] === 'string' ? { ...record, shift: raw['shift'] } : record;
 }
 
 /** Cadastro de colaboradores persistido em `localStorage` (ou outro `Storage`). */
@@ -38,8 +43,12 @@ export class LocalStorageEmployeeDirectory implements EmployeeDirectory {
   }
 
   save(record: EmployeeRecord): Promise<void> {
-    const others = this.read().filter((item) => item.registration !== record.registration);
-    this.write([...others, record]);
+    const all = this.read();
+    const previous = all.find((item) => item.registration === record.registration);
+    const others = all.filter((item) => item.registration !== record.registration);
+    // Editar nome/unidade na tela não apaga o horário que veio da planilha.
+    const shift = record.shift ?? previous?.shift;
+    this.write([...others, shift === undefined ? record : { ...record, shift }]);
     return Promise.resolve();
   }
 

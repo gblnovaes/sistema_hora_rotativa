@@ -58,4 +58,19 @@ describe('LocalStorageEmployeeDirectory', () => {
     storage.seed(KEY, JSON.stringify([{ registration: '1', name: 'X', unit: 'OUTRA' }, 42]));
     expect(await new LocalStorageEmployeeDirectory(storage).list()).toEqual([]);
   });
+
+  it('guarda o horário e o mantém quando o colaborador é editado sem horário', async () => {
+    const directory = new LocalStorageEmployeeDirectory(new MapStorage());
+    await directory.save({
+      registration: '1',
+      name: 'Ana',
+      unit: Unit.Mooca,
+      shift: '08:00h as 17:24h',
+    });
+    await directory.save({ registration: '1', name: 'Ana Maria', unit: Unit.Mooca });
+
+    expect(await directory.list()).toEqual([
+      { registration: '1', name: 'Ana Maria', unit: Unit.Mooca, shift: '08:00h as 17:24h' },
+    ]);
+  });
 });

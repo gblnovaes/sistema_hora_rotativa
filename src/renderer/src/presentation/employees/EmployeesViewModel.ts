@@ -66,7 +66,12 @@ export class EmployeesViewModel {
 
   private normalize(record: EmployeeRecord): EmployeeRecord {
     const employee = Employee.create(record);
-    return { registration: employee.registration, name: employee.name, unit: employee.unit };
+    const normalized = {
+      registration: employee.registration,
+      name: employee.name,
+      unit: employee.unit,
+    };
+    return record.shift === undefined ? normalized : { ...normalized, shift: record.shift };
   }
 
   private sorted(employees: readonly EmployeeRecord[]): readonly EmployeeRecord[] {

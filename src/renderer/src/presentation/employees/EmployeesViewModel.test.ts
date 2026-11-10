@@ -55,4 +55,11 @@ describe('EmployeesViewModel', () => {
 
     expect(vm.store.getState().employees.map((e) => e.registration)).toEqual(['2']);
   });
+
+  it('mantém o horário informado ao salvar', async () => {
+    const vm = viewModel();
+    await vm.save({ registration: '1', name: 'A', unit: Unit.Mooca, shift: '08:00h as 14:00h' });
+
+    expect(vm.store.getState().employees[0]?.shift).toBe('08:00h as 14:00h');
+  });
 });

@@ -16,6 +16,7 @@ import GroupIcon from '@mui/icons-material/Group';
 import RuleIcon from '@mui/icons-material/Rule';
 import InsightsIcon from '@mui/icons-material/Insights';
 import MonitorHeartIcon from '@mui/icons-material/MonitorHeart';
+import SwapVertIcon from '@mui/icons-material/SwapVert';
 import LogoutIcon from '@mui/icons-material/Logout';
 import SearchIcon from '@mui/icons-material/Search';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
@@ -26,7 +27,8 @@ import { palette } from '@presentation/theme/tokens';
 
 const SIDEBAR_WIDTH = 236;
 
-export type PageKey = 'dashboard' | 'schedule' | 'employees' | 'rules' | 'balance' | 'diagnostics';
+export type PageKey =
+  'dashboard' | 'schedule' | 'employees' | 'rules' | 'balance' | 'spreadsheet' | 'diagnostics';
 
 const navItems: { readonly label: string; readonly icon: ReactNode; readonly page: PageKey }[] = [
   { label: 'Dashboard', icon: <DashboardIcon />, page: 'dashboard' },
@@ -34,6 +36,7 @@ const navItems: { readonly label: string; readonly icon: ReactNode; readonly pag
   { label: 'Colaboradores', icon: <GroupIcon />, page: 'employees' },
   { label: 'Regras e cobertura', icon: <RuleIcon />, page: 'rules' },
   { label: 'Equilíbrio', icon: <InsightsIcon />, page: 'balance' },
+  { label: 'Importar / Exportar', icon: <SwapVertIcon />, page: 'spreadsheet' },
   { label: 'Diagnóstico', icon: <MonitorHeartIcon />, page: 'diagnostics' },
 ];
 
