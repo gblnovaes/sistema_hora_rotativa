@@ -6,6 +6,7 @@ import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { EmployeesPage } from './employees/EmployeesPage';
 import { WeeklySchedulePage } from './schedule/WeeklySchedulePage';
 import { RulesPage } from './rules/RulesPage';
+import { BalancePage } from './balance/BalancePage';
 
 function PlaceholderPage({ title }: { readonly title: string }): JSX.Element {
   return (
@@ -25,7 +26,7 @@ const PAGES: Record<PageKey, JSX.Element> = {
   employees: <EmployeesPage />,
   schedule: <WeeklySchedulePage />,
   rules: <RulesPage />,
-  balance: <PlaceholderPage title="Equilíbrio" />,
+  balance: <BalancePage />,
   diagnostics: <PlaceholderPage title="Diagnóstico" />,
 };
 
