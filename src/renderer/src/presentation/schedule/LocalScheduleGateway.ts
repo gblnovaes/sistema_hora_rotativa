@@ -32,7 +32,11 @@ export class LocalScheduleGateway implements ScheduleGateway {
     const records = await this.directory.list();
     const employees = records.map((record) => Employee.create(record));
     const coverage = await this.coverage();
-    const generated = this.scheduler.generate(employees, RotationHistory.empty(), { coverage });
+    const generated = this.scheduler.generate(
+      employees,
+      RotationHistory.empty(),
+      coverage === undefined ? {} : { coverage },
+    );
     this.weeks = generated.weeks;
     return this.present(generated.weeks);
   }

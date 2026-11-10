@@ -31,7 +31,11 @@ export class LocalBalanceGateway implements BalanceGateway {
 
     let history = RotationHistory.empty();
     for (let index = 0; index < weeks; index += 1) {
-      history = this.scheduler.generate(employees, history, { coverage }).history;
+      history = this.scheduler.generate(
+        employees,
+        history,
+        coverage === undefined ? {} : { coverage },
+      ).history;
     }
 
     const rows = employees
