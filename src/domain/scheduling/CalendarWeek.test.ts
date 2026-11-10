@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, fromIsoDate, mondayOf, toIsoDate, weekStarts } from './CalendarWeek';
+import {
+  addDays,
+  fromIsoDate,
+  mondayOf,
+  toIsoDate,
+  weekStarts,
+  weeksBetween,
+} from './CalendarWeek';
 
 describe('CalendarWeek', () => {
   it('acha a segunda-feira de qualquer dia da semana, inclusive o domingo', () => {
@@ -22,5 +29,12 @@ describe('CalendarWeek', () => {
       '2026-11-16',
       '2026-11-23',
     ]);
+  });
+
+  it('conta semanas entre duas segundas-feiras, inclusive atravessando o horário de verão', () => {
+    expect(weeksBetween('2026-11-09', '2026-11-09')).toBe(0);
+    expect(weeksBetween('2026-11-09', '2026-12-07')).toBe(4);
+    expect(weeksBetween('2026-10-05', '2026-11-09')).toBe(5);
+    expect(weeksBetween('2026-11-16', '2026-11-09')).toBe(-1);
   });
 });

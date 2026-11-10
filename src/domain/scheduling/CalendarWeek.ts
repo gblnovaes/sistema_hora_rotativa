@@ -26,3 +26,10 @@ export function weekStarts(reference: Date, count: number): readonly string[] {
   const first = mondayOf(reference);
   return Array.from({ length: count }, (_, index) => toIsoDate(addDays(first, index * 7)));
 }
+
+const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+
+/** Quantas semanas inteiras separam duas segundas-feiras (`AAAA-MM-DD`); negativo se `to` vem antes. */
+export function weeksBetween(from: string, to: string): number {
+  return Math.round((fromIsoDate(to).getTime() - fromIsoDate(from).getTime()) / MS_PER_WEEK);
+}
