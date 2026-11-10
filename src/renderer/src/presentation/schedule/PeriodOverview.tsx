@@ -1,6 +1,6 @@
 import { Box, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
 import type { ScheduleWeekView } from './scheduleGateway';
-import { periodOverview } from './periodOverview';
+import { periodSummary } from './periodSummary';
 import { DAY_LABEL, UNIT_LABEL } from './scheduleLabels';
 import { weekRangeLabel } from './weekLabels';
 
@@ -20,7 +20,7 @@ export function PeriodOverview({
   selectedIndex,
   onSelectWeek,
 }: PeriodOverviewProps): JSX.Element {
-  const rows = periodOverview(weeks);
+  const rows = periodSummary(weeks);
   return (
     <Box sx={{ overflowX: 'auto' }}>
       <Table size="small" aria-label="Folga rotativa por colaborador em cada semana">

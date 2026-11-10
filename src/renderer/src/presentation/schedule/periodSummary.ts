@@ -13,7 +13,7 @@ export interface OverviewRow {
 }
 
 /** Resume o período numa linha por colaborador, para ler a rotação de relance. */
-export function periodOverview(weeks: readonly ScheduleWeekView[]): readonly OverviewRow[] {
+export function periodSummary(weeks: readonly ScheduleWeekView[]): readonly OverviewRow[] {
   const first = weeks[0];
   if (first === undefined) {
     return [];
